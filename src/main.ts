@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import './style.css';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -102,6 +103,48 @@ camera.add(flashlight);
 camera.add(flashlight.target);
 scene.add(camera);
 
+// Lonely Wanderer: loaded from public/models so the original GLB stays untouched.
+const monsterRoot = new THREE.Group();
+monsterRoot.position.set(10, 0, -10);
+scene.add(monsterRoot);
+let monsterMixer: THREE.AnimationMixer | null = null;
+let monsterActions: Record<string, THREE.AnimationAction> = {};
+let activeMonsterAction = '';
+let monsterLoaded = false;
+let monsterState: 'patrol' | 'chase' = 'patrol';
+let patrolTarget = new THREE.Vector3(-10, 0, 10);
+let patrolPause = 0;
+const monsterLoader = new GLTFLoader();
+monsterLoader.load(
+  `${import.meta.env.BASE_URL}models/Lonely_Wanderer.glb`,
+  (gltf) => {
+    const model = gltf.scene;
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const scale = 2.15 / Math.max(size.y, 0.001);
+    model.scale.setScalar(scale);
+    model.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
+    monsterRoot.add(model);
+    monsterMixer = new THREE.AnimationMixer(model);
+    for (const clip of gltf.animations) monsterActions[clip.name] = monsterMixer.clipAction(clip);
+    monsterLoaded = true;
+    setMonsterAnimation('Zombie_Walk');
+  },
+  undefined,
+  (error) => console.error('Could not load Lonely_Wanderer.glb:', error)
+);
+
+function setMonsterAnimation(name: string) {
+  const next = monsterActions[name];
+  if (!next || activeMonsterAction === name) return;
+  next.reset().fadeIn(0.25).play();
+  if (activeMonsterAction && monsterActions[activeMonsterAction]) {
+    monsterActions[activeMonsterAction].fadeOut(0.25);
+  }
+  activeMonsterAction = name;
+}
+
 const keys = new Set<string>();
 let playing = false;
 let flashlightOn = false;
@@ -165,6 +208,42 @@ function animate(now: number) {
   requestAnimationFrame(animate);
   const dt = Math.min((now - lastTime) / 1000, 0.05);
   lastTime = now;
+
+  monsterMixer?.update(dt);
+
+  if (monsterLoaded) {
+    const toPlayer = new THREE.Vector3(camera.position.x - monsterRoot.position.x, 0, camera.position.z - monsterRoot.position.z);
+    const distanceToPlayer = toPlayer.length();
+    monsterState = distanceToPlayer < 11 ? 'chase' : 'patrol';
+    let moveDirection = new THREE.Vector3();
+    let monsterSpeed = 0;
+    if (monsterState === 'chase') {
+      moveDirection.copy(toPlayer).normalize();
+      monsterSpeed = 2.75;
+      setMonsterAnimation('Run_Stealth');
+    } else {
+      const toTarget = patrolTarget.clone().sub(monsterRoot.position);
+      toTarget.y = 0;
+      if (toTarget.length() < 1.1) {
+        patrolPause += dt;
+        setMonsterAnimation('Idle_A');
+        if (patrolPause > 2.2) {
+          patrolPause = 0;
+          patrolTarget.set((Math.random() - 0.5) * 25, 0, (Math.random() - 0.5) * 25);
+        }
+      } else {
+        moveDirection.copy(toTarget.normalize());
+        monsterSpeed = 1.05;
+        setMonsterAnimation('Zombie_Walk');
+      }
+    }
+    if (moveDirection.lengthSq() > 0) {
+      const step = moveDirection.multiplyScalar(monsterSpeed * dt);
+      const next = monsterRoot.position.clone().add(step);
+      if (!collides(next)) monsterRoot.position.copy(next);
+      monsterRoot.rotation.y = Math.atan2(step.x, step.z);
+    }
+  }
 
   // Subtle fluorescent flicker.
   ceilingLights.forEach((light, index) => {
