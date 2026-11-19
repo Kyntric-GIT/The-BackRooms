@@ -65,7 +65,6 @@ function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number
   part(1.0,2.0,.055,0,1.1,-.37,inside);
   const door=new THREE.Mesh(new THREE.BoxGeometry(1.02,2.04,.065),metal);door.position.set(-.58,1.1,.38);door.rotation.y=-.95;g.add(door);
   const handle=new THREE.Mesh(new THREE.BoxGeometry(.045,.25,.06),new THREE.MeshStandardMaterial({color:0xc4bda4,metalness:.7,roughness:.35}));handle.position.set(-.14,1.1,.62);g.add(handle);
-  const dark=new THREE.Mesh(new THREE.BoxGeometry(.8,1.75,.025),inside);dark.position.set(0,1.1,.12);g.add(dark);
  }else{
   const body=new THREE.Mesh(new THREE.BoxGeometry(kind==='generator'?1.1:.55,kind==='generator'?1.35:.45,kind==='generator'?.8:.45),new THREE.MeshStandardMaterial({color:0x55534a,roughness:.85,metalness:.12}));
   body.position.y=kind==='generator'?.68:.28;g.add(body);
