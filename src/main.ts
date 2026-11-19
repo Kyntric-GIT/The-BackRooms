@@ -214,38 +214,89 @@ const wandererBrain:MonsterBrain={state:'patrol',target:new THREE.Vector3(26,0,1
 const smilerBrain:MonsterBrain={state:'stalk',target:new THREE.Vector3(18,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
 const sightRay=new THREE.Raycaster();let playerNoise=0;
 function hasSight(monster:THREE.Group,range:number,fov:number){const origin=monster.position.clone().add(new THREE.Vector3(0,1.45,0));const target=camera.position.clone();const delta=target.clone().sub(origin);const distance=delta.length();if(distance>range)return false;const forward=new THREE.Vector3(0,0,1).applyQuaternion(monster.quaternion).normalize();if(forward.dot(delta.clone().normalize())<Math.cos(fov/2))return false;sightRay.set(origin,delta.normalize());sightRay.far=Math.max(0,distance-.55);return sightRay.intersectObjects(walls,false).length===0;}
-function playerLooksAt(monster:THREE.Group){const to=monster.position.clone().add(new THREE.Vector3(0,1.5,0)).sub(camera.position).normalize();const forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).normalize();return forward.dot(to)>.91;}
-function choosePatrolTarget(monster:THREE.Group,brain:MonsterBrain){for(let i=0;i<10;i++){const p=new THREE.Vector3(brain.origin.x+(Math.random()-.5)*30,0,brain.origin.z+(Math.random()-.5)*30);if(p.x>1&&p.x<239&&p.z>1&&p.z<119&&!collides(p)){brain.target.copy(p);return;}}brain.target.copy(monster.position);}
-function moveMonster(monster:THREE.Group,target:THREE.Vector3,speed:number,dt:number){const delta=new THREE.Vector3(target.x-monster.position.x,0,target.z-monster.position.z);if(delta.length()<.05)return;delta.normalize();const step=delta.multiplyScalar(speed*dt);const next=monster.position.clone().add(step);if(!collides(next)){monster.position.copy(next);monster.rotation.y=Math.atan2(step.x,step.z);}else{const side=new THREE.Vector3(-step.z,0,step.x);const alternate=monster.position.clone().add(side);if(!collides(alternate)){monster.position.copy(alternate);monster.rotation.y=Math.atan2(side.x,side.z);}}}
+function playerLooksAt(monster:THREE.Group){
+ const to=monster.position.clone().add(new THREE.Vector3(0,1.35,0)).sub(camera.position);
+ const distance=to.length();if(distance>30)return false;
+ const forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).normalize();
+ if(forward.dot(to.normalize())<.94)return false;
+ sightRay.set(camera.position,to.normalize());sightRay.far=Math.max(0,distance-.45);
+ return sightRay.intersectObjects(walls,false).length===0;
+}
+function choosePatrolTarget(monster:THREE.Group,brain:MonsterBrain){
+ for(let i=0;i<18;i++){
+  const p=new THREE.Vector3(brain.origin.x+(Math.random()-.5)*42,0,brain.origin.z+(Math.random()-.5)*42);
+  if(p.x>1&&p.x<239&&p.z>1&&p.z<119&&!collides(p)){brain.target.copy(p);return;}
+ }
+ brain.target.copy(monster.position);
+}
+function moveMonster(monster:THREE.Group,target:THREE.Vector3,speed:number,dt:number){
+ const dx=target.x-monster.position.x,dz=target.z-monster.position.z;
+ const distance=Math.hypot(dx,dz);if(distance<.08)return false;
+ const desired=Math.atan2(dx,dz);
+ // Try the direct route first, then progressively wider steering angles.
+ const offsets=[0,.38,-.38,.78,-.78,1.2,-1.2,1.65,-1.65,2.25,-2.25,Math.PI];
+ let bestX=0,bestZ=0,bestScore=-Infinity;
+ for(const offset of offsets){
+  const angle=desired+offset,dirX=Math.sin(angle),dirZ=Math.cos(angle);
+  const probe=monster.position.clone().add(new THREE.Vector3(dirX*.9,0,dirZ*.9));
+  if(collides(probe))continue;
+  const score=Math.cos(offset)*2+(Math.min(distance,4)/4)*.08;
+  if(score>bestScore){bestScore=score;bestX=dirX;bestZ=dirZ;}
+ }
+ if(bestScore===-Infinity)return false;
+ const step=Math.min(speed*dt,distance);
+ const next=monster.position.clone().add(new THREE.Vector3(bestX*step,0,bestZ*step));
+ if(!collides(next))monster.position.copy(next);
+ monster.rotation.y=Math.atan2(bestX,bestZ);
+ return true;
+}
 function updateMonster(monster:THREE.Group,brain:MonsterBrain,kind:'wanderer'|'smiler',dt:number){
  if(isHiding)return;
- const player=camera.position.clone();player.y=0;const distance=monster.position.distanceTo(player);const looking=playerLooksAt(monster);
+ const player=camera.position.clone();player.y=0;
+ const distance=Math.hypot(monster.position.x-player.x,monster.position.z-player.z);
+ const looking=playerLooksAt(monster);
  if(kind==='smiler'){
-   brain.state='stalk';
-   if(distance<24&&looking)return;
-   if(distance<3.8){const away=monster.position.clone().sub(player).normalize();moveMonster(monster,monster.position.clone().add(away.multiplyScalar(8)),1.45,dt);}
-   else if(distance<21){moveMonster(monster,player,1.35,dt);}
-   else{brain.think-=dt;if(brain.think<=0||monster.position.distanceTo(brain.target)<1){choosePatrolTarget(monster,brain);brain.think=3+Math.random()*3;}moveMonster(monster,brain.target,.85,dt);}
+  // Smilers stop moving when directly watched, then close the distance when unseen.
+  if(distance<30&&looking){
+   brain.state='stalk';brain.lastKnown.copy(player);brain.think=0;
+   const face=player.clone().sub(monster.position);monster.rotation.y=Math.atan2(face.x,face.z);
    return;
+  }
+  if(distance<1.25)return;
+  if(distance<23){
+   brain.state='chase';brain.lastKnown.copy(player);
+   moveMonster(monster,player, distance<7?1.9:1.55,dt);
+  }else{
+   brain.state='patrol';brain.think-=dt;
+   if(brain.think<=0||monster.position.distanceTo(brain.target)<1){choosePatrolTarget(monster,brain);brain.think=2.5+Math.random()*2.5;}
+   moveMonster(monster,brain.target,.9,dt);
+  }
+  return;
  }
- const seen=hasSight(monster,16,Math.PI*.72);
- const heard=playerNoise>0&&distance<(playerNoise>1?19:11);
+ const seen=hasSight(monster,20,Math.PI*.82);
+ const heard=playerNoise>0&&distance<(playerNoise>1?25:14);
  if(seen){brain.state='chase';brain.lastKnown.copy(player);brain.timer=0;}
- else if(heard){brain.state='investigate';brain.lastKnown.copy(player);brain.timer=0;}
- else if(brain.state==='chase'){brain.state='search';brain.target.copy(brain.lastKnown);brain.timer=5;}
+ else if(heard&&brain.state!=='chase'){brain.state='investigate';brain.lastKnown.copy(player);brain.timer=0;}
+ else if(brain.state==='chase'){brain.state='search';brain.target.copy(brain.lastKnown);brain.timer=7;brain.think=0;}
  if(brain.state==='patrol'){
-   brain.think-=dt;if(brain.think<=0||monster.position.distanceTo(brain.target)<1){choosePatrolTarget(monster,brain);brain.think=2+Math.random()*3;}
-   moveMonster(monster,brain.target,1.05,dt);playAnim('Zombie_Walk');
+  brain.think-=dt;
+  if(brain.think<=0||monster.position.distanceTo(brain.target)<1){choosePatrolTarget(monster,brain);brain.think=2+Math.random()*3;}
+  moveMonster(monster,brain.target,1.15,dt);playAnim('Zombie_Walk');
  }else if(brain.state==='chase'){
-   moveMonster(monster,player,2.7,dt);playAnim('Run_Stealth');
+  moveMonster(monster,player,3.05,dt);playAnim('Run_Stealth');
  }else if(brain.state==='investigate'){
-   moveMonster(monster,brain.lastKnown,1.7,dt);playAnim('Zombie_Walk');
-   if(monster.position.distanceTo(brain.lastKnown)<1.3){brain.state='search';brain.timer=4;}
+  moveMonster(monster,brain.lastKnown,1.85,dt);playAnim('Zombie_Walk');
+  if(monster.position.distanceTo(brain.lastKnown)<1.4){brain.state='search';brain.timer=5.5;brain.think=0;}
  }else if(brain.state==='search'){
-   brain.timer-=dt;brain.think-=dt;
-   if(brain.think<=0||monster.position.distanceTo(brain.target)<.8){const a=Math.random()*Math.PI*2;brain.target.set(brain.lastKnown.x+Math.cos(a)*3,0,brain.lastKnown.z+Math.sin(a)*3);brain.think=1.2;}
-   moveMonster(monster,brain.target,1.0,dt);playAnim('Zombie_Walk');
-   if(brain.timer<=0){brain.state='patrol';brain.think=0;}
+  brain.timer-=dt;brain.think-=dt;
+  if(brain.think<=0||monster.position.distanceTo(brain.target)<.9){
+   const a=Math.random()*Math.PI*2,r=2+Math.random()*4;
+   brain.target.set(brain.lastKnown.x+Math.cos(a)*r,0,brain.lastKnown.z+Math.sin(a)*r);
+   if(collides(brain.target))brain.target.copy(brain.lastKnown);
+   brain.think=1.1+Math.random()*.7;
+  }
+  moveMonster(monster,brain.target,1.12,dt);playAnim('Zombie_Walk');
+  if(brain.timer<=0){brain.state='patrol';brain.think=0;}
  }
 }
 function animate(now:number){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;mixer?.update(dt);
