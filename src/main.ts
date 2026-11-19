@@ -75,13 +75,14 @@ function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number
 }
 function setupLevelGameplay(n:number){
  clearInteractables();breakersOn=0;fusesFound=0;hasAccessCard=false;collectedItems.clear();updateInventory();
- playerSpawn.copy(camera.position);playerSpawn.y=1.65;captureCooldown=0;
- if(n===0){for(let i=0;i<3;i++)addInteractable('breaker','Breaker '+(i+1),freePosition(i),0xe5d58c);addInteractable('note','Explorer note',freePosition(4),0xd8d0ad);updateObjective('Restore power: activate the 3 breaker boxes. Then find the exit.');}
- else if(n===1){for(let i=0;i<3;i++)addInteractable('fuse','Fuse '+(i+1),freePosition(i+2),0xffdf85);addInteractable('generator','Power generator',freePosition(6),0x9bd6a0);updateObjective('Find 3 fuses and install them in the generator. Then reach the exit.');}
+ playerSpawn.copy(level<=1?MAP_PLAYER_SPAWN:camera.position);playerSpawn.y=1.65;camera.position.copy(playerSpawn);captureCooldown=0;
+ if(n===0){const picks=[...MAP_OBJECTIVE_SPAWNS].sort(()=>Math.random()-.5).slice(0,3);for(let i=0;i<3;i++)addInteractable('breaker','Breaker '+(i+1),new THREE.Vector3(picks[i][0],0,picks[i][1]),0xe5d58c);addInteractable('note','Explorer note',freePosition(4),0xd8d0ad);updateObjective('Restore power: activate the 3 breaker boxes. Then find the exit.');}
+ else if(n===1){const picks=[...MAP_OBJECTIVE_SPAWNS].sort(()=>Math.random()-.5).slice(0,3);for(let i=0;i<3;i++)addInteractable('fuse','Fuse '+(i+1),new THREE.Vector3(picks[i][0],0,picks[i][1]),0xffdf85);addInteractable('generator','Power generator',MAP_GENERATOR_SPAWN.clone(),0x9bd6a0);updateObjective('Find 3 fuses and install them in the generator. Then reach the exit.');}
  else if(n===2){addInteractable('card','Safe-zone access card',freePosition(1),0x9bd6a0);addInteractable('note','Explorer note',freePosition(3),0xd8d0ad);updateObjective('Explore the safe zone and find the access card to open the next passage.');}
  else{addInteractable('note','Final note',freePosition(2),0xd8d0ad);updateObjective('Follow the daylight. Find out whether this exit is real.');}
- const lockerCount=n===1?10:n===0?8:7;
- for(let i=0;i<lockerCount;i++)addInteractable('locker','Locker '+(i+1),freePosition(100+i),0x9bd6a0);
+ if(n<=1){for(let i=0;i<MAP_LOCKER_SPAWNS.length;i++){const [x,z]=MAP_LOCKER_SPAWNS[i];addInteractable('locker','Locker '+(i+1),new THREE.Vector3(x,0,z),0x9bd6a0);}}
+ else{for(let i=0;i<7;i++)addInteractable('locker','Locker '+(i+1),freePosition(100+i),0x9bd6a0);}
+ if(n<=1){const points=[...MAP_MONSTER_SPAWNS];const spawn=points[Math.floor(Math.random()*points.length)];const monster=n===0?wanderer:smiler;if(monster){monster.position.set(spawn[0],0,spawn[1]);monster.visible=true;}}
 }
 function nearInteractable(maxDistance=2.5){let best:{item:typeof interactables[number];distance:number}|null=null;for(const item of interactables){if(!item.active)continue;const d=camera.position.distanceTo(item.object.position.clone().add(new THREE.Vector3(0,1,0)));if(d<maxDistance&&(!best||d<best.distance))best={item,distance:d};}return best;}
 function updateInteractHint(){const hint=document.querySelector<HTMLElement>('#interact-hint');if(!hint)return;if(!playing||isHiding){hint.style.opacity='0';return;}const near=nearInteractable();const exitDistance=exitPortal?camera.position.distanceTo(exitPortal.position.clone().add(new THREE.Vector3(0,1,0))):99;if(near){hint.textContent='E  ·  '+(near.item.kind==='locker'?'HIDE IN ':near.item.kind==='breaker'?'ACTIVATE ':near.item.kind==='fuse'?'PICK UP ':near.item.kind==='generator'?'USE ':near.item.kind==='card'?'COLLECT ': 'READ ')+near.item.label;hint.style.opacity='1';}else if(exitDistance<3.5){hint.textContent='E  ·  USE EXIT';hint.style.opacity='1';}else hint.style.opacity='0';}
@@ -90,11 +91,11 @@ function handleWorldInteraction(){
  const near=nearInteractable();
  if(near){const item=near.item;
   if(item.kind==='locker'){hidingReturnPosition.copy(camera.position);hidingReturnYaw=yaw;hidingReturnPitch=pitch;camera.position.set(item.object.position.x,item.object.position.y+1.15,item.object.position.z+.08);yaw=Math.PI;pitch=0;camera.rotation.set(pitch,yaw,0,'YXZ');isHiding=true;message('You are inside the locker. Press E to climb out.');return;}
-  if(item.kind==='breaker'){breakersOn++;item.active=false;world.remove(item.object);message('Breaker activated ('+breakersOn+'/3).');updateObjective(breakersOn>=3?'Power restored. Find the exit.':'Activate the 3 breaker boxes ('+breakersOn+'/3).');}
+  if(item.kind==='breaker'){breakersOn++;item.active=false;world.remove(item.object);message('Breaker activated ('+breakersOn+'/3).');updateObjective(breakersOn>=3?'Power restored. Find the exit.':'Activate the 3 breaker boxes ('+breakersOn+'/3).');if(breakersOn>=3)revealExit();}
   else if(item.kind==='fuse'){fusesFound++;collectedItems.add(item.label);item.active=false;world.remove(item.object);message('Fuse collected ('+fusesFound+'/3).');updateInventory();updateObjective(fusesFound>=3?'All fuses found. Return to the generator.':'Find the remaining fuses ('+fusesFound+'/3).');}
-  else if(item.kind==='generator'){if(fusesFound<3){message('The generator needs 3 fuses.');}else{item.active=false;world.remove(item.object);message('Generator online. The exit is powered.');updateObjective('Power restored. Find the exit.');}}
-  else if(item.kind==='card'){hasAccessCard=true;collectedItems.add('Access card');item.active=false;world.remove(item.object);updateInventory();message('Access card collected.');updateObjective('You have the access card. Find the exit.');}
-  else if(item.kind==='note'){collectedItems.add('Explorer note');item.active=false;world.remove(item.object);updateInventory();message('You found a note: “The rooms change when you stop paying attention.”');}
+  else if(item.kind==='generator'){if(fusesFound<3){message('The generator needs 3 fuses.');}else{item.active=false;world.remove(item.object);message('Generator online. The exit is powered.');updateObjective('Power restored. Find the exit.');revealExit();}}
+  else if(item.kind==='card'){hasAccessCard=true;collectedItems.add('Access card');item.active=false;world.remove(item.object);updateInventory();message('Access card collected.');updateObjective('You have the access card. Find the exit.');revealExit();}
+  else if(item.kind==='note'){collectedItems.add('Explorer note');item.active=false;world.remove(item.object);updateInventory();message('You found a note: “The rooms change when you stop paying attention.”');if(level===3)revealExit();}
   saveProgress();return;
  }
  const exitDistance=exitPortal?camera.position.distanceTo(exitPortal.position):99;
@@ -132,7 +133,14 @@ const ceilMat=new THREE.MeshBasicMaterial({map:makePatternTexture('ceiling'),col
 const lightPanelGeometry=new THREE.BoxGeometry(2.25,.04,1.05); const walls:THREE.Mesh[]=[]; type SolidBounds={minX:number;maxX:number;minZ:number;maxZ:number}; const solidBounds:SolidBounds[]=[]; const solidGrid=new Map<string,SolidBounds[]>(); const CELL_SIZE=8; const lights:THREE.PointLight[]=[]; const world=new THREE.Group(); scene.add(world);
 let exitPortal: THREE.Group | null = null;
 let level=0;
+const MAP_PLAYER_SPAWN=new THREE.Vector3(8.33,0,7.35);
+const MAP_OBJECTIVE_SPAWNS=[[40.21,3.17],[115.42,3.17],[156.29,15.73],[205.19,22.42],[25.95,27.19],[61.17,28.89],[235.65,38.92],[172.72,47.91],[182.53,52.37],[22.9,52.66],[48.08,55.42],[185.35,68.57],[3.05,72.21],[92.82,72.21],[211.06,77.79],[128.87,78.08],[52.84,84.54],[12.86,88.71],[102.86,93.17],[98.69,107.44],[75.44,113.31],[185.63,113.6],[3.35,114.72]] as const;
+const MAP_LOCKER_SPAWNS=[[126.3,25.66],[174.83,31.66],[236.93,46.56],[97.56,49.25],[2.42,55.41],[103.43,55.63],[77.77,56.01],[53.93,66.23],[126.34,66.12],[21.76,72.21],[197.56,116.43]] as const;
+const MAP_MONSTER_SPAWNS=[[53.25,12.52],[213.28,13.8],[143.66,14.32],[95.28,36.45],[12.64,43.38],[148.07,43.38],[214.98,44.78],[150.18,90.59],[67.04,92.7],[205.72,109.13],[12.21,113.67]] as const;
+const MAP_GENERATOR_SPAWN=new THREE.Vector3(159.93,0,89.0);
+const MAP_EXIT_SPAWN=new THREE.Vector3(235.95,0,114.72);
 function placeExit(x:number,z:number){if(exitPortal)scene.remove(exitPortal);const g=new THREE.Group();const frame=new THREE.Mesh(new THREE.TorusGeometry(1.05,.12,12,36),new THREE.MeshStandardMaterial({color:0x8b9c76,emissive:0x31482c,emissiveIntensity:1.5}));frame.position.y=1.35;g.add(frame);const glow=new THREE.Mesh(new THREE.PlaneGeometry(1.75,2.35),new THREE.MeshBasicMaterial({color:0x9bd6a0,transparent:true,opacity:.38,side:THREE.DoubleSide}));glow.position.set(0,1.35,-.03);g.add(glow);const lamp=new THREE.PointLight(0x9bd6a0,16,9);lamp.position.set(0,1.5,1);g.add(lamp);g.position.set(x,0,z);scene.add(g);exitPortal=g;}
+function revealExit(){if(exitPortal)return;placeExit(level<=1?MAP_EXIT_SPAWN.x:0,level<=1?MAP_EXIT_SPAWN.z:-18);message('Objective complete. The exit has appeared.');}
 function addBox(w:number,h:number,d:number,x:number,y:number,z:number,mat:THREE.Material,solid=false){
  const geometry=new THREE.BoxGeometry(w,h,d),pos=geometry.attributes.position,normal=geometry.attributes.normal,uv=geometry.attributes.uv;
  for(let i=0;i<uv.count;i++){const nx=Math.abs(normal.getX(i)),ny=Math.abs(normal.getY(i)),px=pos.getX(i),py=pos.getY(i),pz=pos.getZ(i);let u=px,v=py;if(ny>.5){u=px;v=pz;}else if(nx>.5){u=pz;v=py;}uv.setXY(i,u,v);}
@@ -183,12 +191,11 @@ for(let x=4;x<240;x+=8){for(let z=4;z<120;z+=8){if(!isCeilingLightSpotClear(x,z,
  const glow=new THREE.Mesh(new THREE.PlaneGeometry(3.0,1.7),glowMat);glow.rotation.x=-Math.PI/2;glow.position.set(x,ceiling-.145,z);world.add(glow);
  if(panelIndex%8===0){const light=new THREE.PointLight(level===1?0xd5d0df:0xffe8b2,level===1?8:14,level===1?17:23,1.5);light.position.set(x,ceiling-.38,z);world.add(light);lights.push(light);}panelIndex++;
 }}
- camera.position.set(2,1.65,2);
- placeExit(232,112);
+ camera.position.copy(MAP_PLAYER_SPAWN);camera.position.y=1.65;
  message('Original NullZoner map loaded — 382 map shapes.');
  return true;
 }
-function setLevel(n:number){level=n;hemiLight.intensity=n===1?.58:1.3;ambientLight.intensity=n===1?.2:.48;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];exitReady=false;scene.background=new THREE.Color(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b);scene.fog=new THREE.Fog(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b,n===1?7:12,n===1?39:55);if(n<=1){void loadUserMap().then(()=>setupLevelGameplay(n));}else{makeRoom();camera.position.set(0,1.65,8);placeExit(0,-18);setupLevelGameplay(n);}if(wanderer)wanderer.visible=n===0;if(smiler)smiler.visible=n===1;message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
+function setLevel(n:number){if(exitPortal){scene.remove(exitPortal);exitPortal=null;}level=n;hemiLight.intensity=n===1?.58:1.3;ambientLight.intensity=n===1?.2:.48;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];exitReady=false;scene.background=new THREE.Color(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b);scene.fog=new THREE.Fog(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b,n===1?7:12,n===1?39:55);if(n<=1){void loadUserMap().then(()=>setupLevelGameplay(n));}else{makeRoom();camera.position.set(0,1.65,8);placeExit(0,-18);setupLevelGameplay(n);}if(wanderer)wanderer.visible=n===0;if(smiler)smiler.visible=n===1;message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
 function begin(){playing=true;paused=false;menu.classList.remove('visible');pauseUI.classList.remove('visible');completeUI.classList.remove('visible');renderer.domElement.requestPointerLock();}
 function pause(){if(!playing)return;paused=true;playing=false;pauseUI.classList.add('visible');if(document.pointerLockElement)document.exitPointerLock();}
 function resume(){paused=false;pauseUI.classList.remove('visible');begin();}
