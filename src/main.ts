@@ -80,11 +80,49 @@ document.addEventListener('mousemove',e=>{if(!playing||document.pointerLockEleme
 document.addEventListener('keydown',e=>{keys.add(e.code);if(e.code==='Escape'&&playing)pause();if(e.code==='KeyF'&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' [F]';}if(e.code==='KeyI'&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){playing=false;document.exitPointerLock();}else begin();}if(e.code==='KeyE'&&!e.repeat&&playing&&exitPortal){const exitDistance=Math.hypot(camera.position.x-exitPortal.position.x,camera.position.z-exitPortal.position.z);if(exitDistance<3.5){if(level<3)endLevel();else message('The door opens onto an empty field. A shadow moves behind you. TO BE CONTINUED.');}else message('Find the glowing doorway to continue.');}});
 document.addEventListener('keyup',e=>keys.delete(e.code));document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause();});
 const radius=.32;function collides(p:THREE.Vector3){for(const m of walls){const b=new THREE.Box3().setFromObject(m);if(p.x+radius>b.min.x&&p.x-radius<b.max.x&&p.z+radius>b.min.z&&p.z-radius<b.max.z)return true;}return false;}
+type MonsterState='patrol'|'investigate'|'search'|'chase'|'stalk';
+type MonsterBrain={state:MonsterState;target:THREE.Vector3;lastKnown:THREE.Vector3;origin:THREE.Vector3;timer:number;think:number;};
+const wandererBrain:MonsterBrain={state:'patrol',target:new THREE.Vector3(26,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
+const smilerBrain:MonsterBrain={state:'stalk',target:new THREE.Vector3(18,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
+const sightRay=new THREE.Raycaster();let playerNoise=0;
+function hasSight(monster:THREE.Group,range:number,fov:number){const origin=monster.position.clone().add(new THREE.Vector3(0,1.45,0));const target=camera.position.clone();const delta=target.clone().sub(origin);const distance=delta.length();if(distance>range)return false;const forward=new THREE.Vector3(0,0,1).applyQuaternion(monster.quaternion).normalize();if(forward.dot(delta.clone().normalize())<Math.cos(fov/2))return false;sightRay.set(origin,delta.normalize());sightRay.far=Math.max(0,distance-.55);return sightRay.intersectObjects(walls,false).length===0;}
+function playerLooksAt(monster:THREE.Group){const to=monster.position.clone().add(new THREE.Vector3(0,1.5,0)).sub(camera.position).normalize();const forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).normalize();return forward.dot(to)>.91;}
+function choosePatrolTarget(monster:THREE.Group,brain:MonsterBrain){for(let i=0;i<10;i++){const p=new THREE.Vector3(brain.origin.x+(Math.random()-.5)*30,0,brain.origin.z+(Math.random()-.5)*30);if(p.x>1&&p.x<239&&p.z>1&&p.z<119&&!collides(p)){brain.target.copy(p);return;}}brain.target.copy(monster.position);}
+function moveMonster(monster:THREE.Group,target:THREE.Vector3,speed:number,dt:number){const delta=new THREE.Vector3(target.x-monster.position.x,0,target.z-monster.position.z);if(delta.length()<.05)return;delta.normalize();const step=delta.multiplyScalar(speed*dt);const next=monster.position.clone().add(step);if(!collides(next)){monster.position.copy(next);monster.rotation.y=Math.atan2(step.x,step.z);}else{const side=new THREE.Vector3(-step.z,0,step.x);const alternate=monster.position.clone().add(side);if(!collides(alternate)){monster.position.copy(alternate);monster.rotation.y=Math.atan2(side.x,side.z);}}}
+function updateMonster(monster:THREE.Group,brain:MonsterBrain,kind:'wanderer'|'smiler',dt:number){
+ const player=camera.position.clone();player.y=0;const distance=monster.position.distanceTo(player);const looking=playerLooksAt(monster);
+ if(kind==='smiler'){
+   brain.state='stalk';
+   if(distance<24&&looking)return;
+   if(distance<3.8){const away=monster.position.clone().sub(player).normalize();moveMonster(monster,monster.position.clone().add(away.multiplyScalar(8)),1.45,dt);}
+   else if(distance<21){moveMonster(monster,player,1.35,dt);}
+   else{brain.think-=dt;if(brain.think<=0||monster.position.distanceTo(brain.target)<1){choosePatrolTarget(monster,brain);brain.think=3+Math.random()*3;}moveMonster(monster,brain.target,.85,dt);}
+   return;
+ }
+ const seen=hasSight(monster,16,Math.PI*.72);
+ const heard=playerNoise>0&&distance<(playerNoise>1?19:11);
+ if(seen){brain.state='chase';brain.lastKnown.copy(player);brain.timer=0;}
+ else if(heard){brain.state='investigate';brain.lastKnown.copy(player);brain.timer=0;}
+ else if(brain.state==='chase'){brain.state='search';brain.target.copy(brain.lastKnown);brain.timer=5;}
+ if(brain.state==='patrol'){
+   brain.think-=dt;if(brain.think<=0||monster.position.distanceTo(brain.target)<1){choosePatrolTarget(monster,brain);brain.think=2+Math.random()*3;}
+   moveMonster(monster,brain.target,1.05,dt);playAnim('Zombie_Walk');
+ }else if(brain.state==='chase'){
+   moveMonster(monster,player,2.7,dt);playAnim('Run_Stealth');
+ }else if(brain.state==='investigate'){
+   moveMonster(monster,brain.lastKnown,1.7,dt);playAnim('Zombie_Walk');
+   if(monster.position.distanceTo(brain.lastKnown)<1.3){brain.state='search';brain.timer=4;}
+ }else if(brain.state==='search'){
+   brain.timer-=dt;brain.think-=dt;
+   if(brain.think<=0||monster.position.distanceTo(brain.target)<.8){const a=Math.random()*Math.PI*2;brain.target.set(brain.lastKnown.x+Math.cos(a)*3,0,brain.lastKnown.z+Math.sin(a)*3);brain.think=1.2;}
+   moveMonster(monster,brain.target,1.0,dt);playAnim('Zombie_Walk');
+   if(brain.timer<=0){brain.state='patrol';brain.think=0;}
+ }
+}
 function animate(now:number){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;mixer?.update(dt);
-if(smiler?.visible&&playing){const to=new THREE.Vector3(camera.position.x-smiler.position.x,0,camera.position.z-smiler.position.z),dist=to.length();if(dist<15){const step=to.normalize().multiplyScalar(1.8*dt);smiler.position.add(step);smiler.rotation.y=Math.atan2(step.x,step.z);}}
-if(wanderer?.visible&&playing){const to=new THREE.Vector3(camera.position.x-wanderer.position.x,0,camera.position.z-wanderer.position.z),dist=to.length();if(dist<12){playAnim('Run_Stealth');const step=to.normalize().multiplyScalar(2.35*dt),next=wanderer.position.clone().add(step);if(!collides(next))wanderer.position.copy(next);wanderer.rotation.y=Math.atan2(step.x,step.z);}else playAnim('Zombie_Walk');}
+if(playing){if(smiler?.visible)updateMonster(smiler,smilerBrain,'smiler',dt);if(wanderer?.visible)updateMonster(wanderer,wandererBrain,'wanderer',dt);}
 lights.forEach((l,i)=>l.intensity=Math.sin(now*(.0017+i*.00013)+i*8)>.997?5:32);
-if(playing){const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();if(keys.has('KeyW')||keys.has('ArrowUp'))d.add(f);if(keys.has('KeyS')||keys.has('ArrowDown'))d.sub(f);if(keys.has('KeyD')||keys.has('ArrowRight'))d.add(r);if(keys.has('KeyA')||keys.has('ArrowLeft'))d.sub(r);if(d.lengthSq())d.normalize();const sprint=(keys.has('ShiftLeft')||keys.has('ShiftRight'))&&stamina>0&&d.lengthSq()>0;stamina=Math.max(0,Math.min(100,stamina+(sprint?-34:22)*dt));const move=d.multiplyScalar((sprint?6.2:3.5)*dt),x=camera.position.clone(),z=camera.position.clone();x.x+=move.x;z.z+=move.z;if(!collides(x))camera.position.x=x.x;if(!collides(z))camera.position.z=z.z;camera.position.y=1.65;$('#stamina b').style.width=stamina+'%';}
+if(playing){const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();if(keys.has('KeyW')||keys.has('ArrowUp'))d.add(f);if(keys.has('KeyS')||keys.has('ArrowDown'))d.sub(f);if(keys.has('KeyD')||keys.has('ArrowRight'))d.add(r);if(keys.has('KeyA')||keys.has('ArrowLeft'))d.sub(r);const moving=d.lengthSq()>0;const sprint=(keys.has('ShiftLeft')||keys.has('ShiftRight'))&&stamina>0&&moving;playerNoise=sprint?1.5:moving?.75:0;if(moving)d.normalize();stamina=Math.max(0,Math.min(100,stamina+(sprint?-34:22)*dt));const move=d.multiplyScalar((sprint?6.2:3.5)*dt),x=camera.position.clone(),z=camera.position.clone();x.x+=move.x;z.z+=move.z;if(!collides(x))camera.position.x=x.x;if(!collides(z))camera.position.z=z.z;camera.position.y=1.65;$('#stamina b').style.width=stamina+'%';}
 renderer.render(scene,camera);}requestAnimationFrame(animate);
 $('#import-map').onclick=()=>($('#map-file') as HTMLInputElement).click();
 (document.querySelector<HTMLInputElement>('#map-file')!).onchange=async e=>{const f=(e.target as HTMLInputElement).files?.[0];if(!f)return;try{let data:any;if(f.name.endsWith('.backrooms')){const zip=await JSZip.loadAsync(f);const entry=zip.file('map.json');if(!entry)throw new Error('map.json missing from package');data=JSON.parse(await entry.async('text'));}else data=JSON.parse(await f.text());const shapes=data?.data?.shapes??data?.shapes;if(!Array.isArray(shapes))throw new Error('No supported NullZoner shapes found');clearWorld();addBox(240,.2,120,120,-.12,60,floorMat);addBox(240,.2,120,120,3.25,60,ceilMat);let count=0;for(const s of shapes){if((s.kind??s.type)!=='rect'||!s.position||!s.size)continue;const x=Number(s.position.x),z=Number(s.position.z),w=Number(s.size.w),d=Number(s.size.d);if(![x,z,w,d].every(Number.isFinite)||w<=0||d<=0)continue;addBox(w,3.15,d,x+w/2,1.575,z+d/2,wallMat,true);count++;}if(!count)throw new Error('No rectangular wall shapes found');camera.position.set(2,1.65,2);message('Imported map: '+count+' wall shapes.');}catch(err){message('Could not import map: '+(err instanceof Error?err.message:'invalid file'));} };
