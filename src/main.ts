@@ -49,8 +49,8 @@ function makeSmilerModel():THREE.Group{
  return g;
 }
 const loader=new GLTFLoader();let wanderer:THREE.Group|null=null;let smiler:THREE.Group|null=null;let mixer:THREE.AnimationMixer|null=null;let actions:Record<string,THREE.AnimationAction>={};let actionName='';
-loader.load(import.meta.env.BASE_URL+'models/Lonely_Wanderer.glb',g=>{wanderer=new THREE.Group();const model=g.scene;const b=new THREE.Box3().setFromObject(model),s=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());const scale=2.15/Math.max(s.y,.001);model.scale.setScalar(scale);model.position.set(-c.x*scale,-b.min.y*scale,-c.z*scale);wanderer.add(model);wanderer.position.set(18,0,18);scene.add(wanderer);mixer=new THREE.AnimationMixer(model);g.animations.forEach(a=>actions[a.name]=mixer!.clipAction(a));playAnim('Zombie_Walk');},undefined,e=>console.warn('Wanderer model could not load',e));
-loader.load(import.meta.env.BASE_URL+'models/Smiler_Level1.glb',g=>{smiler=g.scene;const box=new THREE.Box3().setFromObject(smiler),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());const scale=2.4/Math.max(size.y,.001);smiler.scale.setScalar(scale);smiler.position.set(18,0,18);smiler.visible=false;scene.add(smiler);},undefined,e=>{console.warn('Smiler model asset unavailable; using built-in 3D model',e);smiler=makeSmilerModel();smiler.position.set(18,0,18);smiler.visible=false;scene.add(smiler);});
+loader.load(import.meta.env.BASE_URL+'models/Lonely_Wanderer.glb',g=>{wanderer=new THREE.Group();const model=g.scene;const b=new THREE.Box3().setFromObject(model),s=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());const scale=2.15/Math.max(s.y,.001);model.scale.setScalar(scale);model.position.set(-c.x*scale,-b.min.y*scale,-c.z*scale);wanderer.add(model);wanderer.position.set(18,0,18);wanderer.visible=level===0;scene.add(wanderer);mixer=new THREE.AnimationMixer(model);g.animations.forEach(a=>actions[a.name]=mixer!.clipAction(a));playAnim('Zombie_Walk');},undefined,e=>console.warn('Wanderer model could not load',e));
+loader.load(import.meta.env.BASE_URL+'models/Smiler_Level1.glb',g=>{smiler=g.scene;const box=new THREE.Box3().setFromObject(smiler),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());const scale=2.4/Math.max(size.y,.001);smiler.scale.setScalar(scale);smiler.position.set(18,0,18);smiler.visible=level===1;scene.add(smiler);},undefined,e=>{console.warn('Smiler model asset unavailable; using built-in 3D model',e);smiler=makeSmilerModel();smiler.position.set(18,0,18);smiler.visible=level===1;scene.add(smiler);});
 function playAnim(n:string){const a=actions[n];if(!a||actionName===n)return;a.reset().fadeIn(.2).play();if(actions[actionName])actions[actionName].fadeOut(.2);actionName=n;}
 let level=0,playing=false,paused=false,inventoryOpen=false,flashOn=false,stamina=100,yaw=0,pitch=0,last=performance.now(),exitReady=false;
 const keys=new Set<string>();const $=(s:string)=>document.querySelector<HTMLElement>(s)!;
@@ -62,7 +62,7 @@ async function loadUserMap(){
  addBox(width,.2,depth,120,-.12,60,floorMat);
  addBox(width,.2,depth,120,ceiling,60,ceilMat);
  for(const [x,z,w,d] of level0Rects) addBox(w,ceiling-.2,d,x+w/2,(ceiling-.2)/2,z+d/2,wallMat,true);
- for(let x=14;x<240;x+=24){for(let z=14;z<120;z+=24){const light=new THREE.PointLight(0xffe8b2,18,20,1.6);light.position.set(x,ceiling-.45,z);world.add(light);lights.push(light);}}
+ for(let x=18;x<240;x+=48){for(let z=18;z<120;z+=40){const light=new THREE.PointLight(0xffe8b2,18,20,1.6);light.position.set(x,ceiling-.45,z);world.add(light);lights.push(light);}}
  camera.position.set(2,1.65,2);
  placeExit(232,112);
  message('Original NullZoner map loaded — 382 map shapes.');
