@@ -6,7 +6,7 @@ function decodeRects(): [number, number, number, number][] {
   const read = () => { let n = 0, shift = 0, b = 0; do { b = bytes[i++]; n |= (b & 127) << shift; shift += 7; } while (b & 128); return n >>> 0; };
   const signed = () => { const n = read(); return (n & 1) ? -((n + 1) >>> 1) : (n >>> 1); };
   const rects: [number, number, number, number][] = [];
-  while (i < bytes.length) { x += signed(); z += signed(); const w = read(), d = read(); rects.push([x, z, w, d]); }
+  while (i < bytes.length) { x += signed(); z += signed(); const w = signed(), d = signed(); rects.push([x, z, w, d]); }
   return rects;
 }
 export const level0Rects = decodeRects();
