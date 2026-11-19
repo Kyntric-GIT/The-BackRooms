@@ -40,6 +40,7 @@ const inventoryList=document.createElement('div');inventoryList.id='inventory-li
 const interactables:{kind:string;label:string;object:THREE.Group;active:boolean}[]=[];
 const collectedItems=new Set<string>();
 let breakersOn=0,fusesFound=0,hasAccessCard=false,isHiding=false,playerSpawn=new THREE.Vector3(2,1.65,2),captureCooldown=0;
+const hidingReturnPosition=new THREE.Vector3();let hidingReturnYaw=0,hidingReturnPitch=0;
 let objectiveText='Find a way out.';
 function updateObjective(t:string){objectiveText=t;const el=document.querySelector<HTMLElement>('#objective-text');if(el)el.textContent=t;}
 function updateInventory(){inventoryList.innerHTML='';const items=[...collectedItems];if(hasAccessCard)items.push('Access card');if(!items.length)items.push('No items collected yet');for(const item of items){const el=document.createElement('div');el.className='inventory-item';el.textContent=item;inventoryList.appendChild(el);}}
@@ -51,31 +52,45 @@ function freePosition(seed:number):THREE.Vector3{
  const minX=level<=1?8:-18,maxX=level<=1?232:18,minZ=level<=1?8:-18,maxZ=level<=1?112:18,step=level<=1?7:5;
  for(let x=minX;x<=maxX;x+=step)for(let z=minZ;z<=maxZ;z+=step){const p=new THREE.Vector3(x,0,z);if(!collides(p)&&Math.hypot(x-camera.position.x,z-camera.position.z)>7&&interactables.every(v=>v.object.position.distanceTo(p)>5))candidates.push(p);}
  if(!candidates.length)return new THREE.Vector3(level<=1?20:0,0,level<=1?20:0);
- return candidates[(seed*37+11)%candidates.length]!;
+ return candidates[Math.floor(Math.random()*candidates.length)]!;
 }
 function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number){
  const g=new THREE.Group();
- const body=new THREE.Mesh(new THREE.BoxGeometry(kind==='locker'?1.15:kind==='generator'?1.1:.55,kind==='locker'?2.2:kind==='generator'?1.35:.45,kind==='locker'?.75:kind==='generator'?.8:.45),new THREE.MeshStandardMaterial({color:kind==='locker'?0x666354:0x55534a,roughness:.85,metalness:.12}));
- body.position.y=kind==='locker'?1.1:kind==='generator'?.68:.28;g.add(body);
- const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.09,.08),new THREE.MeshBasicMaterial({color}));lamp.position.set(0,kind==='locker'?1.65:kind==='generator'?1.05:.38,.42);g.add(lamp);
+ if(kind==='locker'){
+  const metal=new THREE.MeshStandardMaterial({color:0x66665f,roughness:.78,metalness:.28});
+  const inside=new THREE.MeshStandardMaterial({color:0x252722,roughness:1});
+  const part=(w:number,h:number,d:number,x:number,y:number,z:number,mat=metal)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);g.add(m);};
+  part(.09,2.2,.82,-.53,1.1,0);part(.09,2.2,.82,.53,1.1,0);
+  part(1.08,.09,.82,0,.045,0);part(1.08,.09,.82,0,2.155,0);
+  part(1.0,2.0,.055,0,1.1,-.37,inside);
+  const door=new THREE.Mesh(new THREE.BoxGeometry(1.02,2.04,.065),metal);door.position.set(-.58,1.1,.38);door.rotation.y=-.95;g.add(door);
+  const handle=new THREE.Mesh(new THREE.BoxGeometry(.045,.25,.06),new THREE.MeshStandardMaterial({color:0xc4bda4,metalness:.7,roughness:.35}));handle.position.set(-.14,1.1,.62);g.add(handle);
+  const dark=new THREE.Mesh(new THREE.BoxGeometry(.8,1.75,.025),inside);dark.position.set(0,1.1,.12);g.add(dark);
+ }else{
+  const body=new THREE.Mesh(new THREE.BoxGeometry(kind==='generator'?1.1:.55,kind==='generator'?1.35:.45,kind==='generator'?.8:.45),new THREE.MeshStandardMaterial({color:0x55534a,roughness:.85,metalness:.12}));
+  body.position.y=kind==='generator'?.68:.28;g.add(body);
+ }
+ const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.09,.08),new THREE.MeshBasicMaterial({color}));lamp.position.set(0,kind==='locker'?1.65:kind==='generator'?1.05:.38,kind==='locker'?.43:.42);g.add(lamp);
  if(kind==='note'){const page=new THREE.Mesh(new THREE.BoxGeometry(.32,.025,.23),new THREE.MeshBasicMaterial({color:0xe7dfbd}));page.position.y=.55;g.add(page);}
  g.position.copy(pos);world.add(g);interactables.push({kind,label,object:g,active:true});return g;
 }
 function setupLevelGameplay(n:number){
  clearInteractables();breakersOn=0;fusesFound=0;hasAccessCard=false;collectedItems.clear();updateInventory();
  playerSpawn.copy(camera.position);playerSpawn.y=1.65;captureCooldown=0;
- if(n===0){for(let i=0;i<3;i++)addInteractable('breaker','Breaker '+(i+1),freePosition(i),0xe5d58c);addInteractable('note','Explorer note',freePosition(4),0xd8d0ad);addInteractable('locker','Hiding locker',freePosition(7),0x9bd6a0);updateObjective('Restore power: activate the 3 breaker boxes. Then find the exit.');}
- else if(n===1){for(let i=0;i<3;i++)addInteractable('fuse','Fuse '+(i+1),freePosition(i+2),0xffdf85);addInteractable('generator','Power generator',freePosition(6),0x9bd6a0);addInteractable('locker','Hiding locker',freePosition(8),0x9bd6a0);updateObjective('Find 3 fuses and install them in the generator. Then reach the exit.');}
+ if(n===0){for(let i=0;i<3;i++)addInteractable('breaker','Breaker '+(i+1),freePosition(i),0xe5d58c);addInteractable('note','Explorer note',freePosition(4),0xd8d0ad);updateObjective('Restore power: activate the 3 breaker boxes. Then find the exit.');}
+ else if(n===1){for(let i=0;i<3;i++)addInteractable('fuse','Fuse '+(i+1),freePosition(i+2),0xffdf85);addInteractable('generator','Power generator',freePosition(6),0x9bd6a0);updateObjective('Find 3 fuses and install them in the generator. Then reach the exit.');}
  else if(n===2){addInteractable('card','Safe-zone access card',freePosition(1),0x9bd6a0);addInteractable('note','Explorer note',freePosition(3),0xd8d0ad);updateObjective('Explore the safe zone and find the access card to open the next passage.');}
  else{addInteractable('note','Final note',freePosition(2),0xd8d0ad);updateObjective('Follow the daylight. Find out whether this exit is real.');}
+ const lockerCount=n===1?10:n===0?8:7;
+ for(let i=0;i<lockerCount;i++)addInteractable('locker','Locker '+(i+1),freePosition(100+i),0x9bd6a0);
 }
 function nearInteractable(maxDistance=2.5){let best:{item:typeof interactables[number];distance:number}|null=null;for(const item of interactables){if(!item.active)continue;const d=camera.position.distanceTo(item.object.position.clone().add(new THREE.Vector3(0,1,0)));if(d<maxDistance&&(!best||d<best.distance))best={item,distance:d};}return best;}
 function updateInteractHint(){const hint=document.querySelector<HTMLElement>('#interact-hint');if(!hint)return;if(!playing||isHiding){hint.style.opacity='0';return;}const near=nearInteractable();const exitDistance=exitPortal?camera.position.distanceTo(exitPortal.position.clone().add(new THREE.Vector3(0,1,0))):99;if(near){hint.textContent='E  ·  '+(near.item.kind==='locker'?'HIDE IN ':near.item.kind==='breaker'?'ACTIVATE ':near.item.kind==='fuse'?'PICK UP ':near.item.kind==='generator'?'USE ':near.item.kind==='card'?'COLLECT ': 'READ ')+near.item.label;hint.style.opacity='1';}else if(exitDistance<3.5){hint.textContent='E  ·  USE EXIT';hint.style.opacity='1';}else hint.style.opacity='0';}
 function handleWorldInteraction(){
- if(isHiding){isHiding=false;message('You leave the hiding place.');return;}
+ if(isHiding){isHiding=false;camera.position.copy(hidingReturnPosition);camera.position.y=1.65;yaw=hidingReturnYaw;pitch=hidingReturnPitch;camera.rotation.set(pitch,yaw,0,'YXZ');message('You climb out of the locker.');return;}
  const near=nearInteractable();
  if(near){const item=near.item;
-  if(item.kind==='locker'){isHiding=true;message('You are hiding. Press E to leave.');return;}
+  if(item.kind==='locker'){hidingReturnPosition.copy(camera.position);hidingReturnYaw=yaw;hidingReturnPitch=pitch;camera.position.set(item.object.position.x,item.object.position.y+1.15,item.object.position.z+.08);yaw=Math.PI;pitch=0;camera.rotation.set(pitch,yaw,0,'YXZ');isHiding=true;message('You are inside the locker. Press E to climb out.');return;}
   if(item.kind==='breaker'){breakersOn++;item.active=false;world.remove(item.object);message('Breaker activated ('+breakersOn+'/3).');updateObjective(breakersOn>=3?'Power restored. Find the exit.':'Activate the 3 breaker boxes ('+breakersOn+'/3).');}
   else if(item.kind==='fuse'){fusesFound++;collectedItems.add(item.label);item.active=false;world.remove(item.object);message('Fuse collected ('+fusesFound+'/3).');updateInventory();updateObjective(fusesFound>=3?'All fuses found. Return to the generator.':'Find the remaining fuses ('+fusesFound+'/3).');}
   else if(item.kind==='generator'){if(fusesFound<3){message('The generator needs 3 fuses.');}else{item.active=false;world.remove(item.object);message('Generator online. The exit is powered.');updateObjective('Power restored. Find the exit.');}}
@@ -104,7 +119,7 @@ renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.15;
 game.prepend(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xffedc5,0x4b4635,1.3)); scene.add(new THREE.AmbientLight(0xffe9b5,.48));
+const hemiLight=new THREE.HemisphereLight(0xffedc5,0x4b4635,1.3);scene.add(hemiLight);const ambientLight=new THREE.AmbientLight(0xffe9b5,.48);scene.add(ambientLight);
 function makePatternTexture(kind:'wall'|'floor'|'ceiling'){
  const c=document.createElement('canvas');c.width=256;c.height=256;const ctx=c.getContext('2d')!;
  if(kind==='wall'){ctx.fillStyle='#b9b17b';ctx.fillRect(0,0,256,256);for(let x=0;x<256;x+=51){ctx.fillStyle='rgba(226,216,158,.20)';ctx.fillRect(x,0,9,256);ctx.fillStyle='rgba(112,103,65,.13)';ctx.fillRect(x+43,0,3,256);ctx.fillStyle='rgba(231,220,163,.12)';ctx.fillRect(x+11,0,28,256);for(let y=-28;y<300;y+=62){ctx.fillStyle='rgba(139,130,82,.30)';ctx.beginPath();ctx.moveTo(x+7,y+29);ctx.lineTo(x+25,y+7);ctx.lineTo(x+43,y+29);ctx.lineTo(x+37,y+29);ctx.lineTo(x+25,y+15);ctx.lineTo(x+13,y+29);ctx.closePath();ctx.fill();ctx.fillStyle='rgba(221,211,153,.24)';ctx.beginPath();ctx.moveTo(x+12,y+42);ctx.lineTo(x+25,y+27);ctx.lineTo(x+38,y+42);ctx.lineTo(x+34,y+42);ctx.lineTo(x+25,y+32);ctx.lineTo(x+16,y+42);ctx.closePath();ctx.fill();}}}
@@ -133,6 +148,10 @@ makeRoom();
 const flashlight=new THREE.SpotLight(0xfff1cf,0,24,Math.PI/7,.45,1.3);camera.add(flashlight);camera.add(flashlight.target);flashlight.target.position.set(0,0,-1);scene.add(camera);
 function makeSmilerModel():THREE.Group{
  const g=new THREE.Group();
+ const faceTexture=new THREE.TextureLoader().load(import.meta.env.BASE_URL+'models/Smiler.png');faceTexture.colorSpace=THREE.SRGBColorSpace;
+ const faceSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:faceTexture,transparent:true,alphaTest:.025,depthWrite:false}));faceSprite.position.set(0,1.55,0);faceSprite.scale.set(2.55,2.28,1);g.add(faceSprite);
+ return g;
+ /* procedural fallback retained below for environments where image textures fail */
  const shadow=new THREE.Mesh(new THREE.SphereGeometry(.82,24,18),new THREE.MeshStandardMaterial({color:0x08070b,roughness:1,transparent:true,opacity:.96}));
  shadow.scale.set(1.05,1.35,.48);shadow.position.y=1.45;g.add(shadow);
  const face=new THREE.Mesh(new THREE.SphereGeometry(.58,24,16),new THREE.MeshBasicMaterial({color:0x050407}));face.scale.set(1.12,1,.18);face.position.set(0,1.85,-.38);g.add(face);
@@ -146,7 +165,7 @@ function makeSmilerModel():THREE.Group{
 }
 const loader=new GLTFLoader();let wanderer:THREE.Group|null=null;let smiler:THREE.Group|null=null;let mixer:THREE.AnimationMixer|null=null;let actions:Record<string,THREE.AnimationAction>={};let actionName='';
 loader.load(import.meta.env.BASE_URL+'models/Lonely_Wanderer.glb',g=>{wanderer=new THREE.Group();const model=g.scene;const b=new THREE.Box3().setFromObject(model),s=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());const scale=2.15/Math.max(s.y,.001);model.scale.setScalar(scale);model.position.set(-c.x*scale,-b.min.y*scale,-c.z*scale);wanderer.add(model);wanderer.position.set(18,0,18);wanderer.visible=level===0;scene.add(wanderer);mixer=new THREE.AnimationMixer(model);g.animations.forEach(a=>actions[a.name]=mixer!.clipAction(a));playAnim('Zombie_Walk');},undefined,e=>console.warn('Wanderer model could not load',e));
-loader.load(import.meta.env.BASE_URL+'models/Smiler_Level1.glb',g=>{smiler=g.scene;const box=new THREE.Box3().setFromObject(smiler),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());const scale=2.4/Math.max(size.y,.001);smiler.scale.setScalar(scale);smiler.position.set(18,0,18);smiler.visible=level===1;scene.add(smiler);},undefined,e=>{console.warn('Smiler model asset unavailable; using built-in 3D model',e);smiler=makeSmilerModel();smiler.position.set(18,0,18);smiler.visible=level===1;scene.add(smiler);});
+smiler=makeSmilerModel();smiler.position.set(18,0,18);smiler.visible=level===1;scene.add(smiler);
 function playAnim(n:string){const a=actions[n];if(!a||actionName===n)return;a.reset().fadeIn(.2).play();if(actions[actionName])actions[actionName].fadeOut(.2);actionName=n;}
 let level=0,playing=false,paused=false,inventoryOpen=false,flashOn=false,stamina=100,yaw=0,pitch=0,last=performance.now(),exitReady=false;
 const keys=new Set<string>();const $=(s:string)=>document.querySelector<HTMLElement>(s)!;
@@ -158,18 +177,18 @@ async function loadUserMap(){
  addBox(width,.2,depth,120,-.12,60,floorMat);
  addBox(width,.2,depth,120,ceiling,60,ceilMat);
  for(const [x,z,w,d] of level0Rects) addBox(w,ceiling-.2,d,x+w/2,(ceiling-.2)/2,z+d/2,wallMat,true);
- const panelMat=new THREE.MeshBasicMaterial({color:0xfff5d5});const glowMat=new THREE.MeshBasicMaterial({color:0xffe9b8,transparent:true,opacity:.11,side:THREE.DoubleSide,depthWrite:false});let panelIndex=0;
+ const panelMat=new THREE.MeshBasicMaterial({color:level===1?0xaaa49b:0xfff5d5});const glowMat=new THREE.MeshBasicMaterial({color:level===1?0xaaa5ad:0xffe9b8,transparent:true,opacity:level===1?.055:.11,side:THREE.DoubleSide,depthWrite:false});let panelIndex=0;
 for(let x=4;x<240;x+=8){for(let z=4;z<120;z+=8){if(!isCeilingLightSpotClear(x,z,.2))continue;
  const panel=new THREE.Mesh(lightPanelGeometry,panelMat);panel.position.set(x,ceiling-.125,z);world.add(panel);
  const glow=new THREE.Mesh(new THREE.PlaneGeometry(3.0,1.7),glowMat);glow.rotation.x=-Math.PI/2;glow.position.set(x,ceiling-.145,z);world.add(glow);
- if(panelIndex%8===0){const light=new THREE.PointLight(0xffe8b2,14,23,1.5);light.position.set(x,ceiling-.38,z);world.add(light);lights.push(light);}panelIndex++;
+ if(panelIndex%8===0){const light=new THREE.PointLight(level===1?0xd5d0df:0xffe8b2,level===1?8:14,level===1?17:23,1.5);light.position.set(x,ceiling-.38,z);world.add(light);lights.push(light);}panelIndex++;
 }}
  camera.position.set(2,1.65,2);
  placeExit(232,112);
  message('Original NullZoner map loaded — 382 map shapes.');
  return true;
 }
-function setLevel(n:number){level=n;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];exitReady=false;scene.background=new THREE.Color(n===2?0x89917c:n===3?0x29252b:0xaaa17b);scene.fog=new THREE.Fog(n===2?0x89917c:n===3?0x29252b:0xaaa17b,12,55);if(n<=1){void loadUserMap().then(()=>setupLevelGameplay(n));}else{makeRoom();camera.position.set(0,1.65,8);placeExit(0,-18);setupLevelGameplay(n);}if(wanderer)wanderer.visible=n===0;if(smiler)smiler.visible=n===1;message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
+function setLevel(n:number){level=n;hemiLight.intensity=n===1?.58:1.3;ambientLight.intensity=n===1?.2:.48;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];exitReady=false;scene.background=new THREE.Color(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b);scene.fog=new THREE.Fog(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b,n===1?7:12,n===1?39:55);if(n<=1){void loadUserMap().then(()=>setupLevelGameplay(n));}else{makeRoom();camera.position.set(0,1.65,8);placeExit(0,-18);setupLevelGameplay(n);}if(wanderer)wanderer.visible=n===0;if(smiler)smiler.visible=n===1;message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
 function begin(){playing=true;paused=false;menu.classList.remove('visible');pauseUI.classList.remove('visible');completeUI.classList.remove('visible');renderer.domElement.requestPointerLock();}
 function pause(){if(!playing)return;paused=true;playing=false;pauseUI.classList.add('visible');if(document.pointerLockElement)document.exitPointerLock();}
 function resume(){paused=false;pauseUI.classList.remove('visible');begin();}
@@ -191,6 +210,7 @@ function playerLooksAt(monster:THREE.Group){const to=monster.position.clone().ad
 function choosePatrolTarget(monster:THREE.Group,brain:MonsterBrain){for(let i=0;i<10;i++){const p=new THREE.Vector3(brain.origin.x+(Math.random()-.5)*30,0,brain.origin.z+(Math.random()-.5)*30);if(p.x>1&&p.x<239&&p.z>1&&p.z<119&&!collides(p)){brain.target.copy(p);return;}}brain.target.copy(monster.position);}
 function moveMonster(monster:THREE.Group,target:THREE.Vector3,speed:number,dt:number){const delta=new THREE.Vector3(target.x-monster.position.x,0,target.z-monster.position.z);if(delta.length()<.05)return;delta.normalize();const step=delta.multiplyScalar(speed*dt);const next=monster.position.clone().add(step);if(!collides(next)){monster.position.copy(next);monster.rotation.y=Math.atan2(step.x,step.z);}else{const side=new THREE.Vector3(-step.z,0,step.x);const alternate=monster.position.clone().add(side);if(!collides(alternate)){monster.position.copy(alternate);monster.rotation.y=Math.atan2(side.x,side.z);}}}
 function updateMonster(monster:THREE.Group,brain:MonsterBrain,kind:'wanderer'|'smiler',dt:number){
+ if(isHiding)return;
  const player=camera.position.clone();player.y=0;const distance=monster.position.distanceTo(player);const looking=playerLooksAt(monster);
  if(kind==='smiler'){
    brain.state='stalk';
