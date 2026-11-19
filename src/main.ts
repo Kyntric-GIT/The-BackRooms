@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import JSZip from 'jszip';
+import { level0Rects } from './level0Data';
 import './style.css';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -24,6 +25,8 @@ const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio
 scene.add(new THREE.HemisphereLight(0xffedc5,0x4b4635,1.15)); scene.add(new THREE.AmbientLight(0xffe9b5,.35));
 const wallMat=new THREE.MeshStandardMaterial({color:0xb6aa78,roughness:.95}), floorMat=new THREE.MeshStandardMaterial({color:0x756c50,roughness:1}), ceilMat=new THREE.MeshStandardMaterial({color:0xbeb48a,roughness:1});
 const walls:THREE.Mesh[]=[]; const lights:THREE.PointLight[]=[]; const world=new THREE.Group(); scene.add(world);
+let exitPortal: THREE.Group | null = null;
+function placeExit(x:number,z:number){if(exitPortal)scene.remove(exitPortal);const g=new THREE.Group();const frame=new THREE.Mesh(new THREE.TorusGeometry(1.05,.12,12,36),new THREE.MeshStandardMaterial({color:0x8b9c76,emissive:0x31482c,emissiveIntensity:1.5}));frame.position.y=1.35;g.add(frame);const glow=new THREE.Mesh(new THREE.PlaneGeometry(1.75,2.35),new THREE.MeshBasicMaterial({color:0x9bd6a0,transparent:true,opacity:.38,side:THREE.DoubleSide}));glow.position.set(0,1.35,-.03);g.add(glow);const lamp=new THREE.PointLight(0x9bd6a0,16,9);lamp.position.set(0,1.5,1);g.add(lamp);g.position.set(x,0,z);scene.add(g);exitPortal=g;}
 function addBox(w:number,h:number,d:number,x:number,y:number,z:number,mat:THREE.Material,solid=false){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.receiveShadow=true;m.castShadow=true;world.add(m);if(solid)walls.push(m);return m;}
 function clearWorld(){while(world.children.length){const o=world.children[0];world.remove(o);if(o instanceof THREE.Mesh){o.geometry.dispose();}}walls.length=0;lights.length=0;}
 function makeRoom(){clearWorld();addBox(44,.2,44,0,-.12,0,floorMat);addBox(44,.2,44,0,3.25,0,ceilMat);const h=3.15,t=.28;const wall=(x:number,z:number,w:number,d:number)=>addBox(w,h,d,x,h/2,z,wallMat,true);
@@ -40,8 +43,19 @@ let level=0,playing=false,paused=false,inventoryOpen=false,flashOn=false,stamina
 const keys=new Set<string>();const $=(s:string)=>document.querySelector<HTMLElement>(s)!;
 const menu=$('#menu'),pauseUI=$('#pause'),inventoryUI=$('#inventory'),completeUI=$('#level-complete'),notice=$('#notice');
 const message=(s:string)=>{notice.textContent=s;notice.classList.add('show');};
-async function loadUserMap(){try{const response=await fetch(import.meta.env.BASE_URL+'maps/level-0.backrooms');if(!response.ok)throw new Error('Map asset is not deployed');const zip=await JSZip.loadAsync(await response.arrayBuffer());const entry=zip.file('map.json');if(!entry)throw new Error('map.json missing');const root=JSON.parse(await entry.async('text'));const data=root.data??root;const shapes=data.shapes??[];const bounds=data.userBounds??{minX:0,minZ:0,maxX:240,maxZ:120};const width=bounds.maxX-bounds.minX,depth=bounds.maxZ-bounds.minZ;clearWorld();addBox(width,.2,depth,bounds.minX+width/2,-.12,bounds.minZ+depth/2,floorMat);const ceiling=Number(data.defaultCeilingHeight)||4;addBox(width,.2,depth,bounds.minX+width/2,ceiling,bounds.minZ+depth/2,ceilMat);let count=0;for(const shape of shapes){if((shape.kind??shape.type)!=='rect')continue;const p=shape.position??{},sz=shape.size??{};const x=Number(p.x),z=Number(p.z),w=Number(sz.w),d=Number(sz.d);if(![x,z,w,d].every(Number.isFinite)||w<=0||d<=0)continue;addBox(w,ceiling-.2,d,x+w/2,(ceiling-.2)/2,z+d/2,wallMat,true);count++;}for(const zone of data.lightingZones??[]){const p=zone.position??{},sz=zone.size??{};const x=Number(p.x),z=Number(p.z),w=Number(sz.w),d=Number(sz.d);if(![x,z,w,d].every(Number.isFinite))continue;const n=Math.max(0,Math.min(4,Number(zone.numLights)||0));for(let i=0;i<n;i++){const light=new THREE.PointLight(0xffe8b2,22,16,1.7);light.position.set(x+w*(i+1)/(n+1),ceiling-.45,z+d/2);world.add(light);lights.push(light);}}if(!count)throw new Error('No rectangular map walls found');const start=data.playerStart?.position??{x:2,z:2};camera.position.set(Number(start.x)||2,1.65,Number(start.z)||2);message('Your original map loaded.');return true;}catch(error){console.warn('User map unavailable:',error);makeRoom();return false;}}
-function setLevel(n:number){level=n;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];exitReady=false;if(n<=1){void loadUserMap();}else{makeRoom();camera.position.set(0,1.65,8);}if(wanderer)wanderer.visible=n===0;if(smiler)smiler.visible=n===1;message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
+async function loadUserMap(){
+ clearWorld();
+ const width=240,depth=120,ceiling=3.2;
+ addBox(width,.2,depth,120,-.12,60,floorMat);
+ addBox(width,.2,depth,120,ceiling,60,ceilMat);
+ for(const [x,z,w,d] of level0Rects) addBox(w,ceiling-.2,d,x+w/2,(ceiling-.2)/2,z+d/2,wallMat,true);
+ for(let x=14;x<240;x+=24){for(let z=14;z<120;z+=24){const light=new THREE.PointLight(0xffe8b2,18,20,1.6);light.position.set(x,ceiling-.45,z);world.add(light);lights.push(light);}}
+ camera.position.set(2,1.65,2);
+ placeExit(232,112);
+ message('Original NullZoner map loaded — 382 map shapes.');
+ return true;
+}
+function setLevel(n:number){level=n;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];exitReady=false;if(n<=1){void loadUserMap();}else{makeRoom();camera.position.set(0,1.65,8);placeExit(0,-18);}if(wanderer)wanderer.visible=n===0;if(smiler)smiler.visible=n===1;message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
 function begin(){playing=true;paused=false;menu.classList.remove('visible');pauseUI.classList.remove('visible');completeUI.classList.remove('visible');renderer.domElement.requestPointerLock();}
 function pause(){if(!playing)return;paused=true;playing=false;pauseUI.classList.add('visible');if(document.pointerLockElement)document.exitPointerLock();}
 function resume(){paused=false;pauseUI.classList.remove('visible');begin();}
@@ -50,7 +64,7 @@ $('#start').onclick=()=>{setLevel(0);begin();};$('#continue').onclick=()=>begin(
 $('#next-level').onclick=()=>{completeUI.classList.remove('visible');if(level>=3){menu.classList.add('visible');return;}setLevel(level+1);begin();};
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==renderer.domElement&&playing){playing=false;paused=true;pauseUI.classList.add('visible');}});
 document.addEventListener('mousemove',e=>{if(!playing||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022;pitch=Math.max(-1.45,Math.min(1.45,pitch-e.movementY*.0022));camera.rotation.set(pitch,yaw,0,'YXZ');});
-document.addEventListener('keydown',e=>{keys.add(e.code);if(e.code==='Escape'&&playing)pause();if(e.code==='KeyF'&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' [F]';}if(e.code==='KeyI'&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){playing=false;document.exitPointerLock();}else begin();}if(e.code==='KeyE'&&!e.repeat&&playing&&camera.position.length()<5){if(level<3)endLevel();else message('The exit door is locked. Something is on the other side.');}});
+document.addEventListener('keydown',e=>{keys.add(e.code);if(e.code==='Escape'&&playing)pause();if(e.code==='KeyF'&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' [F]';}if(e.code==='KeyI'&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){playing=false;document.exitPointerLock();}else begin();}if(e.code==='KeyE'&&!e.repeat&&playing&&exitPortal){const exitDistance=Math.hypot(camera.position.x-exitPortal.position.x,camera.position.z-exitPortal.position.z);if(exitDistance<3.5){if(level<3)endLevel();else message('The exit door is locked. Something is on the other side.');}else message('Find the glowing doorway to continue.');}});
 document.addEventListener('keyup',e=>keys.delete(e.code));document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause();});
 const radius=.32;function collides(p:THREE.Vector3){for(const m of walls){const b=new THREE.Box3().setFromObject(m);if(p.x+radius>b.min.x&&p.x-radius<b.max.x&&p.z+radius>b.min.z&&p.z-radius<b.max.z)return true;}return false;}
 function animate(now:number){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;mixer?.update(dt);
