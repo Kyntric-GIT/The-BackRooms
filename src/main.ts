@@ -1,301 +1,61 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import JSZip from 'jszip';
 import './style.css';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
-  <div id="game">
-    <div id="hud">
-      <div class="brand">THE BACKROOMS <span>LEVEL 0</span></div>
-      <div class="hud-right"><span id="light-status">FLASHLIGHT: OFF [F]</span><span id="stamina">STAMINA <i><b></b></i></span></div>
-    </div>
-    <div id="crosshair"></div>
-    <div id="vignette"></div>
-    <div id="menu" class="visible">
-      <div class="menu-panel">
-        <p class="eyebrow">YOU HAVE NO CLIPPed OUT OF REALITY</p>
-        <h1>THE<br><em>BACKROOMS</em></h1>
-        <p class="subtitle">There is no way out. Keep moving.</p>
-        <button id="start">ENTER LEVEL 0</button>
-        <p class="controls">WASD — MOVE &nbsp; · &nbsp; MOUSE — LOOK<br>SHIFT — SPRINT &nbsp; · &nbsp; F — FLASHLIGHT<br>ESC — PAUSE</p>
-      </div>
-    </div>
-    <div id="notice">Find a way out.</div>
-    <input id="map-file" type="file" accept=".backrooms,.json,application/json" hidden />
-    <button id="import-map" title="Import a map file">IMPORT MAP</button>
-    <div id="import-message"></div>
-  </div>
-`;
+<div id="game">
+  <div id="hud"><div class="brand">THE BACKROOMS <span id="level-name">LEVEL 0 — LOBBY</span></div><div class="hud-right"><span id="light-status">FLASHLIGHT: OFF [F]</span><span id="stamina">STAMINA <i><b></b></i></span></div></div>
+  <div id="crosshair"></div><div id="vignette"></div>
+  <div id="notice">Find a way out.</div>
+  <div id="hotbar"><div class="slot selected"><small>1</small>Flashlight</div><div class="slot"><small>2</small>Key</div><div class="slot"><small>3</small>Note</div><div class="slot"><small>4</small>Empty</div><div class="slot"><small>5</small>Empty</div></div>
+  <section id="menu" class="visible"><div class="menu-panel"><p class="eyebrow">YOU HAVE NO CLIPPED OUT OF REALITY</p><h1>THE<br><em>BACKROOMS</em></h1><p class="subtitle">There is no way out. Keep moving.</p><button id="start">NEW GAME</button><button id="continue" class="secondary">CONTINUE</button><p class="controls">WASD — MOVE · MOUSE — LOOK<br>SHIFT — SPRINT · F — FLASHLIGHT · E — INTERACT<br>I — INVENTORY · ESC — PAUSE</p></div></section>
+  <section id="pause" class="overlay"><div class="panel"><h2>PAUSED</h2><button id="resume">RESUME</button><button id="restart" class="secondary">RESTART LEVEL</button><button id="to-menu" class="secondary">MAIN MENU</button></div></section>
+  <section id="inventory" class="overlay"><div class="panel"><h2>INVENTORY</h2><p>Items you discover will appear here.</p><div id="items"><span>Flashlight</span><span>Empty slot</span><span>Empty slot</span></div><button id="close-inventory">CLOSE [I]</button></div></section>
+  <section id="level-complete" class="overlay"><div class="panel"><h2 id="complete-title">LEVEL COMPLETE</h2><p id="complete-text"></p><button id="next-level">CONTINUE</button></div></section>
+  <input id="map-file" type="file" accept=".backrooms,.json,application/json" hidden/><button id="import-map">IMPORT MAP</button><div id="import-message"></div>
+</div>`;
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xaaa17b);
-scene.fog = new THREE.Fog(0xaaa17b, 12, 48);
-
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 100);
-camera.position.set(0, 1.65, 8);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
-document.querySelector('#game')!.prepend(renderer.domElement);
-
-scene.add(new THREE.HemisphereLight(0xffedc5, 0x4b4635, 1.25));
-const ambient = new THREE.AmbientLight(0xffe9b5, 0.38);
-scene.add(ambient);
-
-const wallMat = new THREE.MeshStandardMaterial({ color: 0xb6aa78, roughness: 0.94 });
-const floorMat = new THREE.MeshStandardMaterial({ color: 0x756c50, roughness: 1 });
-const ceilingMat = new THREE.MeshStandardMaterial({ color: 0xbeb48a, roughness: 1 });
-const trimMat = new THREE.MeshStandardMaterial({ color: 0x665e46, roughness: 1 });
-
-function box(w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  mesh.position.set(x, y, z);
-  mesh.receiveShadow = true;
-  mesh.castShadow = true;
-  scene.add(mesh);
-  return mesh;
+const game=document.querySelector<HTMLElement>('#game')!;
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0xaaa17b); scene.fog=new THREE.Fog(0xaaa17b,12,55);
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,150); camera.position.set(0,1.65,8);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; game.prepend(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffedc5,0x4b4635,1.15)); scene.add(new THREE.AmbientLight(0xffe9b5,.35));
+const wallMat=new THREE.MeshStandardMaterial({color:0xb6aa78,roughness:.95}), floorMat=new THREE.MeshStandardMaterial({color:0x756c50,roughness:1}), ceilMat=new THREE.MeshStandardMaterial({color:0xbeb48a,roughness:1});
+const walls:THREE.Mesh[]=[]; const lights:THREE.PointLight[]=[]; const world=new THREE.Group(); scene.add(world);
+function addBox(w:number,h:number,d:number,x:number,y:number,z:number,mat:THREE.Material,solid=false){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.receiveShadow=true;m.castShadow=true;world.add(m);if(solid)walls.push(m);return m;}
+function clearWorld(){while(world.children.length){const o=world.children[0];world.remove(o);if(o instanceof THREE.Mesh){o.geometry.dispose();}}walls.length=0;lights.length=0;}
+function makeRoom(){clearWorld();addBox(44,.2,44,0,-.12,0,floorMat);addBox(44,.2,44,0,3.25,0,ceilMat);const h=3.15,t=.28;const wall=(x:number,z:number,w:number,d:number)=>addBox(w,h,d,x,h/2,z,wallMat,true);
+wall(-8,0,t,24);wall(8,-5,t,34);wall(0,-12,16,t);wall(-3,12,10,t);wall(-12,-7,t,10);wall(3,5,t,9);wall(12,8,t,12);wall(5,-1,6,t);wall(-5,-4,5,t);wall(-1,8,t,8);wall(4,-9,8,t);wall(-11,5,6,t);
+for(const [x,z] of [[-5,-5],[4,-7],[-5,7],[5,7],[0,-14],[-13,0],[12,0]] as number[][]){const l=new THREE.PointLight(0xffe8a8,32,14,1.7);l.position.set(x,2.95,z);world.add(l);lights.push(l);addBox(1.45,.07,.42,x,3.12,z,new THREE.MeshBasicMaterial({color:0xfff2c9}));}
 }
-
-// A winding, open-ended starter layout. NullZoner map import will replace this block once
-// we have a real exported sample and can confirm its file format.
-box(44, 0.2, 44, floorMat, 0, -0.12, 0);
-box(44, 0.2, 44, ceilingMat, 0, 3.25, 0);
-const wallHeight = 3.15;
-const wallThickness = 0.28;
-const walls: THREE.Mesh[] = [];
-function wall(x: number, z: number, width: number, depth: number) {
-  const mesh = box(width, wallHeight, depth, wallMat, x, wallHeight / 2, z);
-  walls.push(mesh);
-}
-wall(-8, 0, 0.3, 24); wall(8, -5, 0.3, 34);
-wall(0, -12, 16, 0.3); wall(-3, 12, 10, 0.3);
-wall(-12, -7, 0.3, 10); wall(3, 5, 0.3, 9);
-wall(12, 8, 0.3, 12); wall(5, -1, 6, 0.3);
-wall(-5, -4, 5, 0.3); wall(-1, 8, 0.3, 8);
-wall(4, -9, 8, 0.3); wall(-11, 5, 6, 0.3);
-for (let i = -2; i <= 2; i++) {
-  box(0.08, 0.08, 0.08, trimMat, i * 3, 0.02, -15);
-}
-
-const ceilingLights: THREE.PointLight[] = [];
-for (const [x, z] of [[-5, -5], [4, -7], [-5, 7], [5, 7], [0, -14], [-13, 0], [12, 0]] as number[][]) {
-  const light = new THREE.PointLight(0xffe8a8, 34, 13, 1.7);
-  light.position.set(x, 2.95, z);
-  scene.add(light);
-  ceilingLights.push(light);
-  const fixture = new THREE.Mesh(
-    new THREE.BoxGeometry(1.45, 0.07, 0.42),
-    new THREE.MeshBasicMaterial({ color: 0xfff2c9 })
-  );
-  fixture.position.set(x, 3.12, z);
-  scene.add(fixture);
-}
-
-const flashlight = new THREE.SpotLight(0xfff1cf, 0, 22, Math.PI / 7, 0.45, 1.3);
-flashlight.position.set(0, 0, 0);
-flashlight.target.position.set(0, 0, -1);
-camera.add(flashlight);
-camera.add(flashlight.target);
-scene.add(camera);
-
-// Lonely Wanderer: loaded from public/models so the original GLB stays untouched.
-const monsterRoot = new THREE.Group();
-monsterRoot.position.set(10, 0, -10);
-scene.add(monsterRoot);
-let monsterMixer: THREE.AnimationMixer | null = null;
-let monsterActions: Record<string, THREE.AnimationAction> = {};
-let activeMonsterAction = '';
-let monsterLoaded = false;
-let monsterState: 'patrol' | 'chase' = 'patrol';
-let patrolTarget = new THREE.Vector3(-10, 0, 10);
-let patrolPause = 0;
-const monsterLoader = new GLTFLoader();
-monsterLoader.load(
-  `${import.meta.env.BASE_URL}models/Lonely_Wanderer.glb`,
-  (gltf) => {
-    const model = gltf.scene;
-    const bounds = new THREE.Box3().setFromObject(model);
-    const size = bounds.getSize(new THREE.Vector3());
-    const center = bounds.getCenter(new THREE.Vector3());
-    const scale = 2.15 / Math.max(size.y, 0.001);
-    model.scale.setScalar(scale);
-    model.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
-    monsterRoot.add(model);
-    monsterMixer = new THREE.AnimationMixer(model);
-    for (const clip of gltf.animations) monsterActions[clip.name] = monsterMixer.clipAction(clip);
-    monsterLoaded = true;
-    setMonsterAnimation('Zombie_Walk');
-  },
-  undefined,
-  (error) => console.error('Could not load Lonely_Wanderer.glb:', error)
-);
-
-function setMonsterAnimation(name: string) {
-  const next = monsterActions[name];
-  if (!next || activeMonsterAction === name) return;
-  next.reset().fadeIn(0.25).play();
-  if (activeMonsterAction && monsterActions[activeMonsterAction]) {
-    monsterActions[activeMonsterAction].fadeOut(0.25);
-  }
-  activeMonsterAction = name;
-}
-
-const keys = new Set<string>();
-let playing = false;
-let flashlightOn = false;
-let yaw = 0;
-let pitch = 0;
-let stamina = 100;
-let lastTime = performance.now();
-const menu = document.querySelector<HTMLElement>('#menu')!;
-const lightStatus = document.querySelector<HTMLElement>('#light-status')!;
-const staminaBar = document.querySelector<HTMLElement>('#stamina b')!;
-const importMessage = document.querySelector<HTMLElement>('#import-message')!;
-
-function startGame() {
-  playing = true;
-  menu.classList.remove('visible');
-  renderer.domElement.requestPointerLock();
-}
-document.querySelector('#start')!.addEventListener('click', startGame);
-document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement !== renderer.domElement && playing) {
-    playing = false;
-    menu.classList.add('visible');
-  }
-});
-document.addEventListener('mousemove', (event) => {
-  if (!playing || document.pointerLockElement !== renderer.domElement) return;
-  yaw -= event.movementX * 0.0022;
-  pitch -= event.movementY * 0.0022;
-  pitch = Math.max(-1.45, Math.min(1.45, pitch));
-  camera.rotation.set(pitch, yaw, 0, 'YXZ');
-});
-document.addEventListener('keydown', (event) => {
-  keys.add(event.code);
-  if (event.code === 'KeyF' && !event.repeat) {
-    flashlightOn = !flashlightOn;
-    flashlight.intensity = flashlightOn ? 85 : 0;
-    lightStatus.textContent = `FLASHLIGHT: ${flashlightOn ? 'ON' : 'OFF'} [F]`;
-  }
-});
-document.addEventListener('keyup', (event) => keys.delete(event.code));
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden && playing) document.exitPointerLock();
-});
-
-const playerRadius = 0.32;
-const raycaster = new THREE.Raycaster();
-function collides(position: THREE.Vector3) {
-  for (const mesh of walls) {
-    const bounds = new THREE.Box3().setFromObject(mesh);
-    if (
-      position.x + playerRadius > bounds.min.x &&
-      position.x - playerRadius < bounds.max.x &&
-      position.z + playerRadius > bounds.min.z &&
-      position.z - playerRadius < bounds.max.z
-    ) return true;
-  }
-  return false;
-}
-
-function animate(now: number) {
-  requestAnimationFrame(animate);
-  const dt = Math.min((now - lastTime) / 1000, 0.05);
-  lastTime = now;
-
-  monsterMixer?.update(dt);
-
-  if (monsterLoaded) {
-    const toPlayer = new THREE.Vector3(camera.position.x - monsterRoot.position.x, 0, camera.position.z - monsterRoot.position.z);
-    const distanceToPlayer = toPlayer.length();
-    monsterState = distanceToPlayer < 11 ? 'chase' : 'patrol';
-    let moveDirection = new THREE.Vector3();
-    let monsterSpeed = 0;
-    if (monsterState === 'chase') {
-      moveDirection.copy(toPlayer).normalize();
-      monsterSpeed = 2.75;
-      setMonsterAnimation('Run_Stealth');
-    } else {
-      const toTarget = patrolTarget.clone().sub(monsterRoot.position);
-      toTarget.y = 0;
-      if (toTarget.length() < 1.1) {
-        patrolPause += dt;
-        setMonsterAnimation('Idle_A');
-        if (patrolPause > 2.2) {
-          patrolPause = 0;
-          patrolTarget.set((Math.random() - 0.5) * 25, 0, (Math.random() - 0.5) * 25);
-        }
-      } else {
-        moveDirection.copy(toTarget.normalize());
-        monsterSpeed = 1.05;
-        setMonsterAnimation('Zombie_Walk');
-      }
-    }
-    if (moveDirection.lengthSq() > 0) {
-      const step = moveDirection.multiplyScalar(monsterSpeed * dt);
-      const next = monsterRoot.position.clone().add(step);
-      if (!collides(next)) monsterRoot.position.copy(next);
-      monsterRoot.rotation.y = Math.atan2(step.x, step.z);
-    }
-  }
-
-  // Subtle fluorescent flicker.
-  ceilingLights.forEach((light, index) => {
-    const flicker = Math.sin(now * (0.0017 + index * 0.00013) + index * 8) > 0.997;
-    light.intensity = flicker ? 5 : 34;
-  });
-
-  if (playing) {
-    const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-    const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-    const direction = new THREE.Vector3();
-    if (keys.has('KeyW') || keys.has('ArrowUp')) direction.add(forward);
-    if (keys.has('KeyS') || keys.has('ArrowDown')) direction.sub(forward);
-    if (keys.has('KeyD') || keys.has('ArrowRight')) direction.add(right);
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) direction.sub(right);
-    if (direction.lengthSq() > 0) direction.normalize();
-
-    const sprinting = (keys.has('ShiftLeft') || keys.has('ShiftRight')) && stamina > 0 && direction.lengthSq() > 0;
-    stamina = Math.max(0, Math.min(100, stamina + (sprinting ? -34 : 22) * dt));
-    const speed = sprinting ? 6.2 : 3.5;
-    const move = direction.multiplyScalar(speed * dt);
-    const nextX = camera.position.clone(); nextX.x += move.x;
-    const nextZ = camera.position.clone(); nextZ.z += move.z;
-    if (!collides(nextX)) camera.position.x = nextX.x;
-    if (!collides(nextZ)) camera.position.z = nextZ.z;
-    camera.position.y = 1.65;
-    staminaBar.style.width = `${stamina}%`;
-  }
-  renderer.render(scene, camera);
-}
-requestAnimationFrame(animate);
-
-document.querySelector('#import-map')!.addEventListener('click', () => {
-  (document.querySelector('#map-file') as HTMLInputElement).click();
-});
-document.querySelector<HTMLInputElement>('#map-file')!.addEventListener('change', async (event) => {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  const text = await file.text();
-  try {
-    const data = JSON.parse(text) as { walls?: Array<{ x: number; z: number; width: number; depth: number; height?: number }> };
-    if (!Array.isArray(data.walls)) throw new Error('No walls array found.');
-    importMessage.textContent = 'This JSON uses the game interchange format. Native NullZoner .backrooms support needs a sample export to map its format safely.';
-  } catch {
-    importMessage.textContent = 'File received. We need to inspect a real NullZoner export before enabling its importer.';
-  }
-  importMessage.classList.add('show');
-  setTimeout(() => importMessage.classList.remove('show'), 6500);
-});
-
-window.addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+makeRoom();
+const flashlight=new THREE.SpotLight(0xfff1cf,0,24,Math.PI/7,.45,1.3);camera.add(flashlight);camera.add(flashlight.target);flashlight.target.position.set(0,0,-1);scene.add(camera);
+const loader=new GLTFLoader();let wanderer:THREE.Group|null=null;let mixer:THREE.AnimationMixer|null=null;let actions:Record<string,THREE.AnimationAction>={};let actionName='';
+loader.load(import.meta.env.BASE_URL+'models/Lonely_Wanderer.glb',g=>{wanderer=new THREE.Group();const model=g.scene;const b=new THREE.Box3().setFromObject(model),s=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());const scale=2.15/Math.max(s.y,.001);model.scale.setScalar(scale);model.position.set(-c.x*scale,-b.min.y*scale,-c.z*scale);wanderer.add(model);wanderer.position.set(10,0,-10);scene.add(wanderer);mixer=new THREE.AnimationMixer(model);g.animations.forEach(a=>actions[a.name]=mixer!.clipAction(a));playAnim('Zombie_Walk');},undefined,e=>console.warn('Wanderer model could not load',e));
+function playAnim(n:string){const a=actions[n];if(!a||actionName===n)return;a.reset().fadeIn(.2).play();if(actions[actionName])actions[actionName].fadeOut(.2);actionName=n;}
+let level=0,playing=false,paused=false,inventoryOpen=false,flashOn=false,stamina=100,yaw=0,pitch=0,last=performance.now(),exitReady=false;
+const keys=new Set<string>();const $=(s:string)=>document.querySelector<HTMLElement>(s)!;
+const menu=$('#menu'),pauseUI=$('#pause'),inventoryUI=$('#inventory'),completeUI=$('#level-complete'),notice=$('#notice');
+const message=(s:string)=>{notice.textContent=s;notice.classList.add('show');};
+function setLevel(n:number){level=n;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];makeRoom();camera.position.set(0,1.65,8);exitReady=false;if(wanderer)wanderer.visible=n===0;message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
+function begin(){playing=true;paused=false;menu.classList.remove('visible');pauseUI.classList.remove('visible');completeUI.classList.remove('visible');renderer.domElement.requestPointerLock();}
+function pause(){if(!playing)return;paused=true;playing=false;pauseUI.classList.add('visible');if(document.pointerLockElement)document.exitPointerLock();}
+function resume(){paused=false;pauseUI.classList.remove('visible');begin();}
+function endLevel(){playing=false;document.exitPointerLock();completeUI.classList.add('visible');$('#complete-title').textContent=level===3?'TO BE CONTINUED':'LEVEL '+level+' COMPLETE';$('#complete-text').textContent=level===2?'A familiar doorway opens. Beyond it, the halls become darker.':level===3?'The exit was never an exit. Something moves behind the glass.':'You found a passage deeper into the Backrooms.';$('#next-level').textContent=level===3?'RETURN TO MAIN MENU':'ENTER NEXT LEVEL';}
+$('#start').onclick=()=>{setLevel(0);begin();};$('#continue').onclick=()=>begin();$('#resume').onclick=()=>resume();$('#restart').onclick=()=>{setLevel(level);pauseUI.classList.remove('visible');begin();};$('#to-menu').onclick=()=>{playing=false;paused=false;document.exitPointerLock();pauseUI.classList.remove('visible');menu.classList.add('visible');};$('#close-inventory').onclick=()=>{inventoryOpen=false;inventoryUI.classList.remove('visible');begin();};
+$('#next-level').onclick=()=>{completeUI.classList.remove('visible');if(level>=3){menu.classList.add('visible');return;}setLevel(level+1);begin();};
+document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==renderer.domElement&&playing){playing=false;paused=true;pauseUI.classList.add('visible');}});
+document.addEventListener('mousemove',e=>{if(!playing||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022;pitch=Math.max(-1.45,Math.min(1.45,pitch-e.movementY*.0022));camera.rotation.set(pitch,yaw,0,'YXZ');});
+document.addEventListener('keydown',e=>{keys.add(e.code);if(e.code==='Escape'&&playing)pause();if(e.code==='KeyF'&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' [F]';}if(e.code==='KeyI'&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){playing=false;document.exitPointerLock();}else begin();}if(e.code==='KeyE'&&!e.repeat&&playing&&camera.position.length()<5){if(level<3)endLevel();else message('The exit door is locked. Something is on the other side.');}});
+document.addEventListener('keyup',e=>keys.delete(e.code));document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause();});
+const radius=.32;function collides(p:THREE.Vector3){for(const m of walls){const b=new THREE.Box3().setFromObject(m);if(p.x+radius>b.min.x&&p.x-radius<b.max.x&&p.z+radius>b.min.z&&p.z-radius<b.max.z)return true;}return false;}
+function animate(now:number){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;mixer?.update(dt);
+if(wanderer?.visible&&playing){const to=new THREE.Vector3(camera.position.x-wanderer.position.x,0,camera.position.z-wanderer.position.z),dist=to.length();if(dist<12){playAnim('Run_Stealth');const step=to.normalize().multiplyScalar(2.35*dt),next=wanderer.position.clone().add(step);if(!collides(next))wanderer.position.copy(next);wanderer.rotation.y=Math.atan2(step.x,step.z);}else playAnim('Zombie_Walk');}
+lights.forEach((l,i)=>l.intensity=Math.sin(now*(.0017+i*.00013)+i*8)>.997?5:32);
+if(playing){const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();if(keys.has('KeyW')||keys.has('ArrowUp'))d.add(f);if(keys.has('KeyS')||keys.has('ArrowDown'))d.sub(f);if(keys.has('KeyD')||keys.has('ArrowRight'))d.add(r);if(keys.has('KeyA')||keys.has('ArrowLeft'))d.sub(r);if(d.lengthSq())d.normalize();const sprint=(keys.has('ShiftLeft')||keys.has('ShiftRight'))&&stamina>0&&d.lengthSq()>0;stamina=Math.max(0,Math.min(100,stamina+(sprint?-34:22)*dt));const move=d.multiplyScalar((sprint?6.2:3.5)*dt),x=camera.position.clone(),z=camera.position.clone();x.x+=move.x;z.z+=move.z;if(!collides(x))camera.position.x=x.x;if(!collides(z))camera.position.z=z.z;camera.position.y=1.65;$('#stamina b').style.width=stamina+'%';}
+renderer.render(scene,camera);}requestAnimationFrame(animate);
+$('#import-map').onclick=()=>($('#map-file') as HTMLInputElement).click();
+(document.querySelector<HTMLInputElement>('#map-file')!).onchange=async e=>{const f=(e.target as HTMLInputElement).files?.[0];if(!f)return;try{let data:any;if(f.name.endsWith('.backrooms')){const zip=await JSZip.loadAsync(f);const entry=zip.file('map.json');if(!entry)throw new Error('map.json missing from package');data=JSON.parse(await entry.async('text'));}else data=JSON.parse(await f.text());const shapes=data?.data?.shapes??data?.shapes;if(!Array.isArray(shapes))throw new Error('No supported NullZoner shapes found');clearWorld();addBox(240,.2,120,120,-.12,60,floorMat);addBox(240,.2,120,120,3.25,60,ceilMat);let count=0;for(const s of shapes){if(s.type!=='rect'||!s.position||!s.size)continue;const x=Number(s.position.x),z=Number(s.position.z),w=Number(s.size.w),d=Number(s.size.d);if(![x,z,w,d].every(Number.isFinite)||w<=0||d<=0)continue;addBox(w,3.15,d,x+w/2,1.575,z+d/2,wallMat,true);count++;}if(!count)throw new Error('No rectangular wall shapes found');camera.position.set(2,1.65,2);message('Imported map: '+count+' wall shapes.');}catch(err){message('Could not import map: '+(err instanceof Error?err.message:'invalid file'));} };
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
