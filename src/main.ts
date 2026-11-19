@@ -99,10 +99,10 @@ function setupLevelGameplay(n:number){
 function nearInteractable(maxDistance=2.5){let best:{item:typeof interactables[number];distance:number}|null=null;for(const item of interactables){if(!item.active)continue;const d=camera.position.distanceTo(item.object.position.clone().add(new THREE.Vector3(0,1,0)));if(d<maxDistance&&(!best||d<best.distance))best={item,distance:d};}return best;}
 function updateInteractHint(){const hint=document.querySelector<HTMLElement>('#interact-hint');if(!hint)return;if(!playing||isHiding){hint.style.opacity='0';return;}const near=nearInteractable();const exitDistance=exitPortal?camera.position.distanceTo(exitPortal.position.clone().add(new THREE.Vector3(0,1,0))):99;if(near){hint.textContent='E  ·  '+(near.item.kind==='locker'?'HIDE IN ':near.item.kind==='breaker'?'ACTIVATE ':near.item.kind==='fuse'?'PICK UP ':near.item.kind==='generator'?'USE ':near.item.kind==='card'?'COLLECT ': 'READ ')+near.item.label;hint.style.opacity='1';}else if(exitDistance<3.5){hint.textContent='E  ·  USE EXIT';hint.style.opacity='1';}else hint.style.opacity='0';}
 function handleWorldInteraction(){
- if(isHiding){isHiding=false;camera.position.copy(hidingReturnPosition);camera.position.y=1.65;yaw=hidingReturnYaw;pitch=hidingReturnPitch;camera.rotation.set(pitch,yaw,0,'YXZ');message('You climb out of the locker.');return;}
+ if(isHiding){isHiding=false;camera.position.copy(hidingReturnPosition);camera.position.y=1.65;yaw=hidingReturnYaw;pitch=hidingReturnPitch;camera.rotation.set(pitch,yaw,0,'YXZ');for(const brain of [wandererBrain,smilerBrain])if(brain.state==='locker-check'){brain.state='chase';brain.lastKnown.copy(camera.position);brain.timer=0;}message('You climb out of the locker.');return;}
  const near=nearInteractable();
  if(near){const item=near.item;
-  if(item.kind==='locker'){hidingReturnPosition.copy(camera.position);hidingReturnYaw=yaw;hidingReturnPitch=pitch;camera.position.set(item.object.position.x,item.object.position.y+1.15,item.object.position.z+.08);yaw=Math.PI;pitch=0;camera.rotation.set(pitch,yaw,0,'YXZ');isHiding=true;message('You are inside the locker. Press E to climb out.');return;}
+  if(item.kind==='locker'){hidingReturnPosition.copy(camera.position);hidingReturnYaw=yaw;hidingReturnPitch=pitch;camera.position.set(item.object.position.x,item.object.position.y+1.15,item.object.position.z+.08);yaw=Math.PI;pitch=0;camera.rotation.set(pitch,yaw,0,'YXZ');isHiding=true;for(const [monster,brain] of [[wanderer,wandererBrain],[smiler,smilerBrain]] as [THREE.Group|null,MonsterBrain][])if(monster?.visible&&Math.hypot(monster.position.x-hidingReturnPosition.x,monster.position.z-hidingReturnPosition.z)<26){brain.state='locker-check';brain.target.copy(hidingReturnPosition);brain.timer=0;brain.think=0;}message('Stay quiet. The locker door closes around you.');return;}
   if(item.kind==='breaker'){breakersOn++;item.active=false;world.remove(item.object);message('Breaker activated ('+breakersOn+'/3).');updateObjective(breakersOn>=3?'Power restored. Find the exit.':'Activate the 3 breaker boxes ('+breakersOn+'/3).');if(breakersOn>=3)revealExit();}
   else if(item.kind==='fuse'){fusesFound++;collectedItems.add(item.label);item.active=false;world.remove(item.object);message('Fuse collected ('+fusesFound+'/3).');updateInventory();updateObjective(fusesFound>=3?'All fuses found. Return to the generator.':'Find the remaining fuses ('+fusesFound+'/3).');}
   else if(item.kind==='generator'){if(fusesFound<3){message('The generator needs 3 fuses.');}else{item.active=false;world.remove(item.object);message('Generator online. The exit is powered.');updateObjective('Power restored. Find the exit.');revealExit();}}
@@ -216,11 +216,11 @@ function endLevel(){playing=false;saveProgress(level<3?level+1:3);document.exitP
 const savedAtMenu=readProgress();const continueButton=$('#continue') as HTMLButtonElement;continueButton.disabled=!(savedAtMenu&&Number.isInteger(savedAtMenu.level));$('#start').onclick=()=>{try{localStorage.removeItem('the-backrooms-save');}catch{}setLevel(0);begin();};$('#continue').onclick=()=>{const saved=readProgress();if(saved&&Number.isInteger(saved.level)){setLevel(Math.max(0,Math.min(3,saved.level)));begin();}};$('#resume').onclick=()=>resume();$('#restart').onclick=()=>{setLevel(level);pauseUI.classList.remove('visible');begin();};$('#to-menu').onclick=()=>{playing=false;paused=false;document.exitPointerLock();pauseUI.classList.remove('visible');menu.classList.add('visible');};$('#close-inventory').onclick=()=>{inventoryOpen=false;inventoryUI.classList.remove('visible');begin();};
 $('#next-level').onclick=()=>{completeUI.classList.remove('visible');if(level>=3){menu.classList.add('visible');return;}setLevel(level+1);begin();};
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==renderer.domElement&&playing){playing=false;paused=true;pauseUI.classList.add('visible');}});
-document.addEventListener('mousemove',e=>{if(!playing||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022;pitch=Math.max(-1.45,Math.min(1.45,pitch-e.movementY*.0022));camera.rotation.set(pitch,yaw,0,'YXZ');});
+document.addEventListener('mousemove',e=>{if(!playing||isHiding||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022;pitch=Math.max(-1.45,Math.min(1.45,pitch-e.movementY*.0022));camera.rotation.set(pitch,yaw,0,'YXZ');});
 document.addEventListener('keydown',e=>{keys.add(e.code);if(e.code==='Escape'&&playing)pause();if(e.code==='KeyF'&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' [F]';}if(e.code==='KeyI'&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){playing=false;document.exitPointerLock();}else begin();}if(e.code==='KeyE'&&!e.repeat&&playing){handleWorldInteraction();}});
 document.addEventListener('keyup',e=>keys.delete(e.code));document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause();});
 const radius=.32;function collides(p:THREE.Vector3){const minX=Math.floor((p.x-radius)/CELL_SIZE),maxX=Math.floor((p.x+radius)/CELL_SIZE),minZ=Math.floor((p.z-radius)/CELL_SIZE),maxZ=Math.floor((p.z+radius)/CELL_SIZE);for(let gx=minX;gx<=maxX;gx++)for(let gz=minZ;gz<=maxZ;gz++){const bucket=solidGrid.get(gx+','+gz);if(!bucket)continue;for(const b of bucket)if(p.x+radius>b.minX&&p.x-radius<b.maxX&&p.z+radius>b.minZ&&p.z-radius<b.maxZ)return true;}return false;}
-type MonsterState='patrol'|'investigate'|'search'|'chase'|'stalk';
+type MonsterState='patrol'|'investigate'|'search'|'chase'|'stalk'|'locker-check';
 type MonsterBrain={state:MonsterState;target:THREE.Vector3;lastKnown:THREE.Vector3;origin:THREE.Vector3;timer:number;think:number;};
 const wandererBrain:MonsterBrain={state:'patrol',target:new THREE.Vector3(26,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
 const smilerBrain:MonsterBrain={state:'stalk',target:new THREE.Vector3(18,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
@@ -263,6 +263,12 @@ function moveMonster(monster:THREE.Group,target:THREE.Vector3,speed:number,dt:nu
  return true;
 }
 function updateMonster(monster:THREE.Group,brain:MonsterBrain,kind:'wanderer'|'smiler',dt:number){
+ if(brain.state==='locker-check'){
+  const d=Math.hypot(monster.position.x-brain.target.x,monster.position.z-brain.target.z);
+  if(d>2.15){moveMonster(monster,brain.target,kind==='smiler'?1.8:2.25,dt);}
+  else{brain.timer+=dt;if(brain.timer>=3){brain.state='patrol';brain.timer=0;brain.think=0;choosePatrolTarget(monster,brain);}}
+  return;
+ }
  if(isHiding)return;
  const player=camera.position.clone();player.y=0;
  const distance=Math.hypot(monster.position.x-player.x,monster.position.z-player.z);
