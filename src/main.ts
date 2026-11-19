@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import JSZip from 'jszip';
 import { level0Rects } from './level0Data';
 import './style.css';
@@ -21,7 +24,31 @@ app.innerHTML = `
 const game=document.querySelector<HTMLElement>('#backrooms-root')!;
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0xaaa17b); scene.fog=new THREE.Fog(0xaaa17b,12,55);
 const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,150); camera.position.set(0,1.65,8);
-const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; game.prepend(renderer.domElement);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'}); renderer.setPixelRatio(Math.min(devicePixelRatio,1.5)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; game.prepend(renderer.domElement);
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+const atmospherePass=new ShaderPass({
+ uniforms:{tDiffuse:{value:null},uTime:{value:0},uResolution:{value:new THREE.Vector2(innerWidth,innerHeight)}},
+ vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+ fragmentShader:`uniform sampler2D tDiffuse;uniform float uTime;uniform vec2 uResolution;varying vec2 vUv;
+ float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+ void main(){
+  vec2 centered=vUv-0.5;float radius=length(centered);float edge=smoothstep(0.12,0.78,radius);
+  vec2 shift=normalize(centered+vec2(0.00001))*edge*0.0022;
+  vec4 base=texture2D(tDiffuse,vUv);
+  float red=texture2D(tDiffuse,vUv+shift).r;
+  float blue=texture2D(tDiffuse,vUv-shift).b;
+  vec3 col=vec3(red,base.g,blue);
+  col*=vec3(1.035,1.015,0.965);
+  col=(col-0.5)*0.94+0.5;
+  float vignette=1.0-smoothstep(0.28,0.82,radius)*0.42;
+  col*=vignette;
+  float grain=(hash(gl_FragCoord.xy+uTime*31.0)-0.5)*0.045;
+  col+=grain;
+  gl_FragColor=vec4(max(col,0.0),base.a);
+ }`
+});
+composer.addPass(atmospherePass);
 scene.add(new THREE.HemisphereLight(0xffedc5,0x4b4635,1.15)); scene.add(new THREE.AmbientLight(0xffe9b5,.35));
 function makePatternTexture(kind:'wall'|'floor'|'ceiling'){
  const c=document.createElement('canvas');c.width=256;c.height=256;const ctx=c.getContext('2d')!;
@@ -136,7 +163,7 @@ function animate(now:number){requestAnimationFrame(animate);const dt=Math.min((n
 if(playing){if(smiler?.visible)updateMonster(smiler,smilerBrain,'smiler',dt);if(wanderer?.visible)updateMonster(wanderer,wandererBrain,'wanderer',dt);}
 lights.forEach((l,i)=>l.intensity=Math.sin(now*(.0017+i*.00013)+i*8)>.997?5:32);
 if(playing){const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();if(keys.has('KeyW')||keys.has('ArrowUp'))d.add(f);if(keys.has('KeyS')||keys.has('ArrowDown'))d.sub(f);if(keys.has('KeyD')||keys.has('ArrowRight'))d.add(r);if(keys.has('KeyA')||keys.has('ArrowLeft'))d.sub(r);const moving=d.lengthSq()>0;const sprint=(keys.has('ShiftLeft')||keys.has('ShiftRight'))&&stamina>0&&moving;playerNoise=sprint?1.5:moving?.75:0;if(moving)d.normalize();stamina=Math.max(0,Math.min(100,stamina+(sprint?-34:22)*dt));const move=d.multiplyScalar((sprint?6.2:3.5)*dt),x=camera.position.clone(),z=camera.position.clone();x.x+=move.x;z.z+=move.z;if(!collides(x))camera.position.x=x.x;if(!collides(z))camera.position.z=z.z;camera.position.y=1.65;$('#stamina b').style.width=stamina+'%';}
-renderer.render(scene,camera);}requestAnimationFrame(animate);
+atmospherePass.uniforms.uTime.value=now*.001;composer.render();}requestAnimationFrame(animate);
 $('#import-map').onclick=()=>($('#map-file') as HTMLInputElement).click();
 (document.querySelector<HTMLInputElement>('#map-file')!).onchange=async e=>{const f=(e.target as HTMLInputElement).files?.[0];if(!f)return;try{let data:any;if(f.name.endsWith('.backrooms')){const zip=await JSZip.loadAsync(f);const entry=zip.file('map.json');if(!entry)throw new Error('map.json missing from package');data=JSON.parse(await entry.async('text'));}else data=JSON.parse(await f.text());const shapes=data?.data?.shapes??data?.shapes;if(!Array.isArray(shapes))throw new Error('No supported NullZoner shapes found');clearWorld();addBox(240,.2,120,120,-.12,60,floorMat);addBox(240,.2,120,120,3.25,60,ceilMat);let count=0;for(const s of shapes){if((s.kind??s.type)!=='rect'||!s.position||!s.size)continue;const x=Number(s.position.x),z=Number(s.position.z),w=Number(s.size.w),d=Number(s.size.d);if(![x,z,w,d].every(Number.isFinite)||w<=0||d<=0)continue;addBox(w,3.15,d,x+w/2,1.575,z+d/2,wallMat,true);count++;}if(!count)throw new Error('No rectangular wall shapes found');camera.position.set(2,1.65,2);message('Imported map: '+count+' wall shapes.');}catch(err){message('Could not import map: '+(err instanceof Error?err.message:'invalid file'));} };
-window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);atmospherePass.uniforms.uResolution.value.set(innerWidth,innerHeight);});
