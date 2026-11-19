@@ -5,7 +5,7 @@ import './style.css';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
-<div id="game">
+<div id="backrooms-root">
   <div id="hud"><div class="brand">THE BACKROOMS <span id="level-name">LEVEL 0 — LOBBY</span></div><div class="hud-right"><span id="light-status">FLASHLIGHT: OFF [F]</span><span id="stamina">STAMINA <i><b></b></i></span></div></div>
   <div id="crosshair"></div><div id="vignette"></div>
   <div id="notice">Find a way out.</div>
@@ -17,7 +17,7 @@ app.innerHTML = `
   <input id="map-file" type="file" accept=".backrooms,.json,application/json" hidden/><button id="import-map">IMPORT MAP</button><div id="import-message"></div>
 </div>`;
 
-const game=document.querySelector<HTMLElement>('#game')!;
+const game=document.querySelector<HTMLElement>('#backrooms-root')!;
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0xaaa17b); scene.fog=new THREE.Fog(0xaaa17b,12,55);
 const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,150); camera.position.set(0,1.65,8);
 const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; game.prepend(renderer.domElement);
