@@ -34,12 +34,12 @@ function makePatternTexture(kind:'wall'|'floor'|'ceiling'){
  const c=document.createElement('canvas');c.width=256;c.height=256;const ctx=c.getContext('2d')!;
  if(kind==='wall'){ctx.fillStyle='#b9b17b';ctx.fillRect(0,0,256,256);for(let x=0;x<256;x+=51){ctx.fillStyle='rgba(226,216,158,.20)';ctx.fillRect(x,0,9,256);ctx.fillStyle='rgba(112,103,65,.13)';ctx.fillRect(x+43,0,3,256);ctx.fillStyle='rgba(231,220,163,.12)';ctx.fillRect(x+11,0,28,256);for(let y=-28;y<300;y+=62){ctx.fillStyle='rgba(139,130,82,.30)';ctx.beginPath();ctx.moveTo(x+7,y+29);ctx.lineTo(x+25,y+7);ctx.lineTo(x+43,y+29);ctx.lineTo(x+37,y+29);ctx.lineTo(x+25,y+15);ctx.lineTo(x+13,y+29);ctx.closePath();ctx.fill();ctx.fillStyle='rgba(221,211,153,.24)';ctx.beginPath();ctx.moveTo(x+12,y+42);ctx.lineTo(x+25,y+27);ctx.lineTo(x+38,y+42);ctx.lineTo(x+34,y+42);ctx.lineTo(x+25,y+32);ctx.lineTo(x+16,y+42);ctx.closePath();ctx.fill();}}}
  else if(kind==='floor'){ctx.fillStyle='#aaa27c';ctx.fillRect(0,0,256,256);let seed=914;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};for(let i=0;i<6500;i++){const v=Math.floor(80+rand()*100);ctx.fillStyle='rgba('+v+','+(v-3)+','+(v-18)+','+(0.08+rand()*.18)+')';ctx.fillRect(rand()*256,rand()*256,1+rand()*2,1+rand()*2);}}
- else{ctx.fillStyle='#77715f';ctx.fillRect(0,0,256,256);for(let x=0;x<=256;x+=64){ctx.fillStyle='#514c40';ctx.fillRect(x,0,3,256);ctx.fillStyle='#a39a80';ctx.fillRect(x+3,0,1,256);}for(let y=0;y<=256;y+=64){ctx.fillStyle='#514c40';ctx.fillRect(0,y,256,3);ctx.fillStyle='#a39a80';ctx.fillRect(0,y+3,256,1);}}
+ else{ctx.fillStyle='#c9c2aa';ctx.fillRect(0,0,256,256);for(let x=0;x<=256;x+=64){ctx.fillStyle='#918a76';ctx.fillRect(x,0,3,256);ctx.fillStyle='#e2dac2';ctx.fillRect(x+3,0,2,256);}for(let y=0;y<=256;y+=64){ctx.fillStyle='#918a76';ctx.fillRect(0,y,256,3);ctx.fillStyle='#e2dac2';ctx.fillRect(0,y+3,256,2);}}
  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;return t;
 }
 const wallMat=new THREE.MeshStandardMaterial({map:makePatternTexture('wall'),color:0xffffff,roughness:.96});
 const floorMat=new THREE.MeshStandardMaterial({map:makePatternTexture('floor'),color:0xffffff,roughness:1});
-const ceilMat=new THREE.MeshBasicMaterial({map:makePatternTexture('ceiling'),color:0xffffff});
+const ceilMat=new THREE.MeshBasicMaterial({map:makePatternTexture('ceiling'),color:0xffffff,toneMapped:false});
 const lightPanelGeometry=new THREE.BoxGeometry(2.25,.04,1.05); const walls:THREE.Mesh[]=[]; type SolidBounds={minX:number;maxX:number;minZ:number;maxZ:number}; const solidBounds:SolidBounds[]=[]; const solidGrid=new Map<string,SolidBounds[]>(); const CELL_SIZE=8; const lights:THREE.PointLight[]=[]; const world=new THREE.Group(); scene.add(world);
 let exitPortal: THREE.Group | null = null;
 function placeExit(x:number,z:number){if(exitPortal)scene.remove(exitPortal);const g=new THREE.Group();const frame=new THREE.Mesh(new THREE.TorusGeometry(1.05,.12,12,36),new THREE.MeshStandardMaterial({color:0x8b9c76,emissive:0x31482c,emissiveIntensity:1.5}));frame.position.y=1.35;g.add(frame);const glow=new THREE.Mesh(new THREE.PlaneGeometry(1.75,2.35),new THREE.MeshBasicMaterial({color:0x9bd6a0,transparent:true,opacity:.38,side:THREE.DoubleSide}));glow.position.set(0,1.35,-.03);g.add(glow);const lamp=new THREE.PointLight(0x9bd6a0,16,9);lamp.position.set(0,1.5,1);g.add(lamp);g.position.set(x,0,z);scene.add(g);exitPortal=g;}
@@ -85,9 +85,9 @@ async function loadUserMap(){
  for(const [x,z,w,d] of level0Rects) addBox(w,ceiling-.2,d,x+w/2,(ceiling-.2)/2,z+d/2,wallMat,true);
  const panelMat=new THREE.MeshBasicMaterial({color:0xfff5d5});const glowMat=new THREE.MeshBasicMaterial({color:0xffe9b8,transparent:true,opacity:.11,side:THREE.DoubleSide,depthWrite:false});let panelIndex=0;
 for(let x=4;x<240;x+=8){for(let z=4;z<120;z+=8){if(!isCeilingLightSpotClear(x,z,.2))continue;
- const panel=new THREE.Mesh(lightPanelGeometry,panelMat);panel.position.set(x,ceiling-.08,z);world.add(panel);
- const glow=new THREE.Mesh(new THREE.PlaneGeometry(3.0,1.7),glowMat);glow.rotation.x=-Math.PI/2;glow.position.set(x,ceiling-.16,z);world.add(glow);
- if(panelIndex%8===0){const light=new THREE.PointLight(0xffe8b2,14,23,1.5);light.position.set(x,ceiling-.42,z);world.add(light);lights.push(light);}panelIndex++;
+ const panel=new THREE.Mesh(lightPanelGeometry,panelMat);panel.position.set(x,ceiling-.125,z);world.add(panel);
+ const glow=new THREE.Mesh(new THREE.PlaneGeometry(3.0,1.7),glowMat);glow.rotation.x=-Math.PI/2;glow.position.set(x,ceiling-.145,z);world.add(glow);
+ if(panelIndex%8===0){const light=new THREE.PointLight(0xffe8b2,14,23,1.5);light.position.set(x,ceiling-.38,z);world.add(light);lights.push(light);}panelIndex++;
 }}
  camera.position.set(2,1.65,2);
  placeExit(232,112);
