@@ -36,7 +36,7 @@ gameplayStyle.textContent=`
 document.head.appendChild(gameplayStyle);
 const objectivePanel=document.createElement('div');objectivePanel.id='objective-panel';objectivePanel.innerHTML='<strong>CURRENT OBJECTIVE</strong><div id="objective-text">Explore the area.</div>';game.appendChild(objectivePanel);
 const interactHint=document.createElement('div');interactHint.id='interact-hint';game.appendChild(interactHint);
-const inventoryList=document.createElement('div');inventoryList.id='inventory-list';$('#items').replaceWith(inventoryList);
+const inventoryList=document.createElement('div');inventoryList.id='inventory-list';document.querySelector('#items')?.replaceWith(inventoryList);
 const interactables:{kind:string;label:string;object:THREE.Group;active:boolean}[]=[];
 const collectedItems=new Set<string>();
 let breakersOn=0,fusesFound=0,hasAccessCard=false,isHiding=false,playerSpawn=new THREE.Vector3(2,1.65,2),captureCooldown=0;
@@ -221,7 +221,7 @@ function updateMonster(monster:THREE.Group,brain:MonsterBrain,kind:'wanderer'|'s
  }
 }
 function animate(now:number){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;mixer?.update(dt);
-if(playing){if(smiler?.visible){updateMonster(smiler,smilerBrain,'smiler',dt);if(smiler.position.distanceTo(camera.position)<1.25)capturePlayer();}if(wanderer?.visible){updateMonster(wanderer,wandererBrain,'wanderer',dt);if(wanderer.position.distanceTo(camera.position)<1.25)capturePlayer();}updateInteractHint();}
+if(playing){if(smiler?.visible){updateMonster(smiler,smilerBrain,'smiler',dt);if(Math.hypot(smiler.position.x-camera.position.x,smiler.position.z-camera.position.z)<1.25)capturePlayer();}if(wanderer?.visible){updateMonster(wanderer,wandererBrain,'wanderer',dt);if(Math.hypot(wanderer.position.x-camera.position.x,wanderer.position.z-camera.position.z)<1.25)capturePlayer();}updateInteractHint();}
 
 if(playing){const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();if(keys.has('KeyW')||keys.has('ArrowUp'))d.add(f);if(keys.has('KeyS')||keys.has('ArrowDown'))d.sub(f);if(keys.has('KeyD')||keys.has('ArrowRight'))d.add(r);if(keys.has('KeyA')||keys.has('ArrowLeft'))d.sub(r);const moving=d.lengthSq()>0;const sprint=(keys.has('ShiftLeft')||keys.has('ShiftRight'))&&stamina>0&&moving;playerNoise=sprint?1.5:moving?.75:0;if(moving&&!isHiding)d.normalize();if(isHiding)d.set(0,0,0);stamina=Math.max(0,Math.min(100,stamina+(sprint?-34:22)*dt));const move=d.multiplyScalar((sprint?6.2:3.5)*dt),x=camera.position.clone(),z=camera.position.clone();x.x+=move.x;z.z+=move.z;if(!collides(x))camera.position.x=x.x;if(!collides(z))camera.position.z=z.z;camera.position.y=1.65;$('#stamina b').style.width=stamina+'%';}
 renderer.render(scene,camera);}requestAnimationFrame(animate);
