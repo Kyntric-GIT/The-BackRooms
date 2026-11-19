@@ -49,7 +49,7 @@ const atmospherePass=new ShaderPass({
  }`
 });
 composer.addPass(atmospherePass);
-scene.add(new THREE.HemisphereLight(0xffedc5,0x4b4635,1.15)); scene.add(new THREE.AmbientLight(0xffe9b5,.35));
+scene.add(new THREE.HemisphereLight(0xffedc5,0x4b4635,1.3)); scene.add(new THREE.AmbientLight(0xffe9b5,.48));
 function makePatternTexture(kind:'wall'|'floor'|'ceiling'){
  const c=document.createElement('canvas');c.width=256;c.height=256;const ctx=c.getContext('2d')!;
  if(kind==='wall'){ctx.fillStyle='#b9b17b';ctx.fillRect(0,0,256,256);for(let x=0;x<256;x+=51){ctx.fillStyle='rgba(226,216,158,.20)';ctx.fillRect(x,0,9,256);ctx.fillStyle='rgba(112,103,65,.13)';ctx.fillRect(x+43,0,3,256);ctx.fillStyle='rgba(231,220,163,.12)';ctx.fillRect(x+11,0,28,256);for(let y=-28;y<300;y+=62){ctx.fillStyle='rgba(139,130,82,.30)';ctx.beginPath();ctx.moveTo(x+7,y+29);ctx.lineTo(x+25,y+7);ctx.lineTo(x+43,y+29);ctx.lineTo(x+37,y+29);ctx.lineTo(x+25,y+15);ctx.lineTo(x+13,y+29);ctx.closePath();ctx.fill();ctx.fillStyle='rgba(221,211,153,.24)';ctx.beginPath();ctx.moveTo(x+12,y+42);ctx.lineTo(x+25,y+27);ctx.lineTo(x+38,y+42);ctx.lineTo(x+34,y+42);ctx.lineTo(x+25,y+32);ctx.lineTo(x+16,y+42);ctx.closePath();ctx.fill();}}}
@@ -102,7 +102,7 @@ async function loadUserMap(){
  addBox(width,.2,depth,120,-.12,60,floorMat);
  addBox(width,.2,depth,120,ceiling,60,ceilMat);
  for(const [x,z,w,d] of level0Rects) addBox(w,ceiling-.2,d,x+w/2,(ceiling-.2)/2,z+d/2,wallMat,true);
- for(let x=18;x<240;x+=48){for(let z=18;z<120;z+=40){const light=new THREE.PointLight(0xffe8b2,15,19,1.6);light.position.set(x,ceiling-.42,z);world.add(light);lights.push(light);const panel=new THREE.Mesh(new THREE.BoxGeometry(2.5,.045,1.15),new THREE.MeshBasicMaterial({color:0xfff7df}));panel.position.set(x,ceiling-.08,z);world.add(panel);}}
+ for(let x=15;x<240;x+=30){for(let z=12;z<120;z+=24){const light=new THREE.PointLight(0xffe8b2,23,30,1.35);light.position.set(x,ceiling-.42,z);world.add(light);lights.push(light);const panel=new THREE.Mesh(new THREE.BoxGeometry(2.5,.045,1.15),new THREE.MeshBasicMaterial({color:0xfff7df}));panel.position.set(x,ceiling-.08,z);world.add(panel);}}
  camera.position.set(2,1.65,2);
  placeExit(232,112);
  message('Original NullZoner map loaded — 382 map shapes.');
