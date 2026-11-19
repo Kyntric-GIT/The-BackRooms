@@ -40,18 +40,18 @@ function makePatternTexture(kind:'wall'|'floor'|'ceiling'){
 const wallMat=new THREE.MeshStandardMaterial({map:makePatternTexture('wall'),color:0xffffff,roughness:.96});
 const floorMat=new THREE.MeshStandardMaterial({map:makePatternTexture('floor'),color:0xffffff,roughness:1});
 const ceilMat=new THREE.MeshStandardMaterial({map:makePatternTexture('ceiling'),color:0xffffff,roughness:1});
-const lightPanelGeometry=new THREE.BoxGeometry(2.5,.045,1.15); const walls:THREE.Mesh[]=[]; const solidBounds:{minX:number;maxX:number;minZ:number;maxZ:number}[]=[]; const lights:THREE.PointLight[]=[]; const world=new THREE.Group(); scene.add(world);
+const lightPanelGeometry=new THREE.BoxGeometry(4.5,.045,2.4); const walls:THREE.Mesh[]=[]; type SolidBounds={minX:number;maxX:number;minZ:number;maxZ:number}; const solidBounds:SolidBounds[]=[]; const solidGrid=new Map<string,SolidBounds[]>(); const CELL_SIZE=8; const lights:THREE.PointLight[]=[]; const world=new THREE.Group(); scene.add(world);
 let exitPortal: THREE.Group | null = null;
 function placeExit(x:number,z:number){if(exitPortal)scene.remove(exitPortal);const g=new THREE.Group();const frame=new THREE.Mesh(new THREE.TorusGeometry(1.05,.12,12,36),new THREE.MeshStandardMaterial({color:0x8b9c76,emissive:0x31482c,emissiveIntensity:1.5}));frame.position.y=1.35;g.add(frame);const glow=new THREE.Mesh(new THREE.PlaneGeometry(1.75,2.35),new THREE.MeshBasicMaterial({color:0x9bd6a0,transparent:true,opacity:.38,side:THREE.DoubleSide}));glow.position.set(0,1.35,-.03);g.add(glow);const lamp=new THREE.PointLight(0x9bd6a0,16,9);lamp.position.set(0,1.5,1);g.add(lamp);g.position.set(x,0,z);scene.add(g);exitPortal=g;}
 function addBox(w:number,h:number,d:number,x:number,y:number,z:number,mat:THREE.Material,solid=false){
  const geometry=new THREE.BoxGeometry(w,h,d),pos=geometry.attributes.position,normal=geometry.attributes.normal,uv=geometry.attributes.uv;
  for(let i=0;i<uv.count;i++){const nx=Math.abs(normal.getX(i)),ny=Math.abs(normal.getY(i)),px=pos.getX(i),py=pos.getY(i),pz=pos.getZ(i);let u=px,v=py;if(ny>.5){u=px;v=pz;}else if(nx>.5){u=pz;v=py;}uv.setXY(i,u,v);}
- uv.needsUpdate=true;const m=new THREE.Mesh(geometry,mat);m.position.set(x,y,z);m.receiveShadow=false;m.castShadow=false;world.add(m);if(solid){walls.push(m);solidBounds.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2});}return m;
+ uv.needsUpdate=true;const m=new THREE.Mesh(geometry,mat);m.position.set(x,y,z);m.receiveShadow=false;m.castShadow=false;world.add(m);if(solid){walls.push(m);const b={minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2};solidBounds.push(b);for(let gx=Math.floor(b.minX/CELL_SIZE);gx<=Math.floor(b.maxX/CELL_SIZE);gx++)for(let gz=Math.floor(b.minZ/CELL_SIZE);gz<=Math.floor(b.maxZ/CELL_SIZE);gz++){const key=gx+','+gz;let bucket=solidGrid.get(key);if(!bucket){bucket=[];solidGrid.set(key,bucket);}bucket.push(b);}}return m;
 }
-function clearWorld(){while(world.children.length){const o=world.children[0];world.remove(o);if(o instanceof THREE.Mesh){o.geometry.dispose();}}walls.length=0;solidBounds.length=0;lights.length=0;}
+function clearWorld(){while(world.children.length){const o=world.children[0];world.remove(o);if(o instanceof THREE.Mesh){o.geometry.dispose();}}walls.length=0;solidBounds.length=0;solidGrid.clear();lights.length=0;}
 function makeRoom(){clearWorld();addBox(44,.2,44,0,-.12,0,floorMat);addBox(44,.2,44,0,3.25,0,ceilMat);const h=3.15,t=.28;const wall=(x:number,z:number,w:number,d:number)=>addBox(w,h,d,x,h/2,z,wallMat,true);
 wall(-8,0,t,24);wall(8,-5,t,34);wall(0,-12,16,t);wall(-3,12,10,t);wall(-12,-7,t,10);wall(3,5,t,9);wall(12,8,t,12);wall(5,-1,6,t);wall(-5,-4,5,t);wall(-1,8,t,8);wall(4,-9,8,t);wall(-11,5,6,t);
-for(const [x,z] of [[-5,-5],[4,-7],[-5,7],[5,7],[0,-14],[-13,0],[12,0]] as number[][]){const l=new THREE.PointLight(0xffe8a8,32,14,1.7);l.position.set(x,2.95,z);world.add(l);lights.push(l);addBox(1.45,.07,.42,x,3.12,z,new THREE.MeshBasicMaterial({color:0xfff2c9}));}
+const roomPanelMat=new THREE.MeshBasicMaterial({color:0xfff2d1});const roomGlowMat=new THREE.MeshBasicMaterial({color:0xffe8b2,transparent:true,opacity:.10,side:THREE.DoubleSide,depthWrite:false});let roomLightIndex=0;for(let x=-18;x<=18;x+=9){for(let z=-18;z<=18;z+=9){const panel=new THREE.Mesh(lightPanelGeometry,roomPanelMat);panel.position.set(x,3.12,z);world.add(panel);const glow=new THREE.Mesh(new THREE.PlaneGeometry(5.8,3.2),roomGlowMat);glow.rotation.x=-Math.PI/2;glow.position.set(x,3.02,z);world.add(glow);if(roomLightIndex%3===0){const l=new THREE.PointLight(0xffe8b2,15,24,1.6);l.position.set(x,2.92,z);world.add(l);lights.push(l);}roomLightIndex++;}}
 }
 makeRoom();
 const flashlight=new THREE.SpotLight(0xfff1cf,0,24,Math.PI/7,.45,1.3);camera.add(flashlight);camera.add(flashlight.target);flashlight.target.position.set(0,0,-1);scene.add(camera);
@@ -82,10 +82,11 @@ async function loadUserMap(){
  addBox(width,.2,depth,120,-.12,60,floorMat);
  addBox(width,.2,depth,120,ceiling,60,ceilMat);
  for(const [x,z,w,d] of level0Rects) addBox(w,ceiling-.2,d,x+w/2,(ceiling-.2)/2,z+d/2,wallMat,true);
- const panelMat=new THREE.MeshBasicMaterial({color:0xfff7df});
-for(let x=10;x<240;x+=15){for(let z=8;z<120;z+=16){
+ const panelMat=new THREE.MeshBasicMaterial({color:0xfff5d5});const glowMat=new THREE.MeshBasicMaterial({color:0xffe9b8,transparent:true,opacity:.11,side:THREE.DoubleSide,depthWrite:false});let panelIndex=0;
+for(let x=6;x<240;x+=12){for(let z=6;z<120;z+=12){
  const panel=new THREE.Mesh(lightPanelGeometry,panelMat);panel.position.set(x,ceiling-.08,z);world.add(panel);
- if(x%60===10&&z%32===8){const light=new THREE.PointLight(0xffe8b2,17,32,1.5);light.position.set(x,ceiling-.42,z);world.add(light);lights.push(light);}
+ const glow=new THREE.Mesh(new THREE.PlaneGeometry(5.8,3.1),glowMat);glow.rotation.x=-Math.PI/2;glow.position.set(x,ceiling-.16,z);world.add(glow);
+ if(panelIndex%12===0){const light=new THREE.PointLight(0xffe8b2,16,27,1.5);light.position.set(x,ceiling-.42,z);world.add(light);lights.push(light);}panelIndex++;
 }}
  camera.position.set(2,1.65,2);
  placeExit(232,112);
@@ -103,7 +104,7 @@ document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElemen
 document.addEventListener('mousemove',e=>{if(!playing||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022;pitch=Math.max(-1.45,Math.min(1.45,pitch-e.movementY*.0022));camera.rotation.set(pitch,yaw,0,'YXZ');});
 document.addEventListener('keydown',e=>{keys.add(e.code);if(e.code==='Escape'&&playing)pause();if(e.code==='KeyF'&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' [F]';}if(e.code==='KeyI'&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){playing=false;document.exitPointerLock();}else begin();}if(e.code==='KeyE'&&!e.repeat&&playing&&exitPortal){const exitDistance=Math.hypot(camera.position.x-exitPortal.position.x,camera.position.z-exitPortal.position.z);if(exitDistance<3.5){if(level<3)endLevel();else message('The door opens onto an empty field. A shadow moves behind you. TO BE CONTINUED.');}else message('Find the glowing doorway to continue.');}});
 document.addEventListener('keyup',e=>keys.delete(e.code));document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause();});
-const radius=.32;function collides(p:THREE.Vector3){for(const b of solidBounds){if(p.x+radius>b.minX&&p.x-radius<b.maxX&&p.z+radius>b.minZ&&p.z-radius<b.maxZ)return true;}return false;}
+const radius=.32;function collides(p:THREE.Vector3){const minX=Math.floor((p.x-radius)/CELL_SIZE),maxX=Math.floor((p.x+radius)/CELL_SIZE),minZ=Math.floor((p.z-radius)/CELL_SIZE),maxZ=Math.floor((p.z+radius)/CELL_SIZE);for(let gx=minX;gx<=maxX;gx++)for(let gz=minZ;gz<=maxZ;gz++){const bucket=solidGrid.get(gx+','+gz);if(!bucket)continue;for(const b of bucket)if(p.x+radius>b.minX&&p.x-radius<b.maxX&&p.z+radius>b.minZ&&p.z-radius<b.maxZ)return true;}return false;}
 type MonsterState='patrol'|'investigate'|'search'|'chase'|'stalk';
 type MonsterBrain={state:MonsterState;target:THREE.Vector3;lastKnown:THREE.Vector3;origin:THREE.Vector3;timer:number;think:number;};
 const wandererBrain:MonsterBrain={state:'patrol',target:new THREE.Vector3(26,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
