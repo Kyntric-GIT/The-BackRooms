@@ -11,7 +11,19 @@ app.innerHTML = `
   <div id="crosshair"></div><div id="vignette"></div>
   <div id="notice">Find a way out.</div>
   <div id="hotbar"><div class="slot selected"><small>1</small>Flashlight</div><div class="slot"><small>2</small>Key</div><div class="slot"><small>3</small>Note</div><div class="slot"><small>4</small>Empty</div><div class="slot"><small>5</small>Empty</div></div>
-  <section id="menu" class="visible"><div class="menu-panel"><p class="eyebrow">YOU HAVE NO CLIPPED OUT OF REALITY</p><h1>THE<br><em>BACKROOMS</em></h1><p class="subtitle">There is no way out. Keep moving.</p><button id="start">NEW GAME</button><button id="continue" class="secondary">CONTINUE</button><p class="controls">WASD — MOVE · MOUSE — LOOK<br>SHIFT — SPRINT · F — FLASHLIGHT · E — INTERACT<br>I — INVENTORY · ESC — PAUSE</p></div></section>
+  <section id="menu" class="visible">
+    <div class="menu-brand"><h1>THE<br><span>BACKROOMS</span></h1><p>YOU HAVE NO CLIPPED OUT OF REALITY</p></div>
+    <div class="menu-social"><span>KG STUDIOS</span><i></i><span>SINGLE PLAYER</span></div>
+    <div class="menu-board">
+      <div class="menu-scratch"></div>
+      <button id="start" class="menu-choice"><span>NEW GAME</span><b>›</b></button>
+      <button id="continue" class="menu-choice"><span>CONTINUE</span><b>›</b></button>
+      <div class="menu-separator"></div>
+      <div class="menu-controls-title">FIELD CONTROLS</div>
+      <p class="controls">WASD <span>MOVE</span><br>MOUSE <span>LOOK</span><br>SHIFT <span>SPRINT</span><br>F <span>FLASHLIGHT</span><br>E <span>INTERACT</span><br>I <span>INVENTORY</span></p>
+    </div>
+    <div class="menu-version">SINGLE PLAYER&nbsp;&nbsp; · &nbsp;&nbsp;THE COMPLEX</div>
+  </section>
   <section id="pause" class="overlay"><div class="panel"><h2>PAUSED</h2><button id="resume">RESUME</button><button id="restart" class="secondary">RESTART LEVEL</button><button id="to-menu" class="secondary">MAIN MENU</button></div></section>
   <section id="inventory" class="overlay"><div class="panel"><h2>INVENTORY</h2><p>Items you discover will appear here.</p><div id="items"><span>Flashlight</span><span>Empty slot</span><span>Empty slot</span></div><button id="close-inventory">CLOSE [I]</button></div></section>
   <section id="level-complete" class="overlay"><div class="panel"><h2 id="complete-title">LEVEL COMPLETE</h2><p id="complete-text"></p><button id="next-level">CONTINUE</button></div></section>
@@ -201,7 +213,7 @@ function begin(){playing=true;paused=false;menu.classList.remove('visible');paus
 function pause(){if(!playing)return;paused=true;playing=false;pauseUI.classList.add('visible');if(document.pointerLockElement)document.exitPointerLock();}
 function resume(){paused=false;pauseUI.classList.remove('visible');begin();}
 function endLevel(){playing=false;saveProgress(level<3?level+1:3);document.exitPointerLock();completeUI.classList.add('visible');$('#complete-title').textContent=level===3?'TO BE CONTINUED':'LEVEL '+level+' COMPLETE';$('#complete-text').textContent=level===2?'A familiar doorway opens. Beyond it, the halls become darker.':level===3?'The exit was never an exit. Something moves behind the glass.':'You found a passage deeper into the Backrooms.';$('#next-level').textContent=level===3?'RETURN TO MAIN MENU':'ENTER NEXT LEVEL';}
-$('#start').onclick=()=>{try{localStorage.removeItem('the-backrooms-save');}catch{}setLevel(0);begin();};$('#continue').onclick=()=>{const saved=readProgress();if(saved&&Number.isInteger(saved.level)&&saved.level>0){setLevel(Math.min(3,saved.level));}begin();};$('#resume').onclick=()=>resume();$('#restart').onclick=()=>{setLevel(level);pauseUI.classList.remove('visible');begin();};$('#to-menu').onclick=()=>{playing=false;paused=false;document.exitPointerLock();pauseUI.classList.remove('visible');menu.classList.add('visible');};$('#close-inventory').onclick=()=>{inventoryOpen=false;inventoryUI.classList.remove('visible');begin();};
+const savedAtMenu=readProgress();const continueButton=$('#continue') as HTMLButtonElement;continueButton.disabled=!(savedAtMenu&&Number.isInteger(savedAtMenu.level));$('#start').onclick=()=>{try{localStorage.removeItem('the-backrooms-save');}catch{}setLevel(0);begin();};$('#continue').onclick=()=>{const saved=readProgress();if(saved&&Number.isInteger(saved.level)){setLevel(Math.max(0,Math.min(3,saved.level)));begin();}};$('#resume').onclick=()=>resume();$('#restart').onclick=()=>{setLevel(level);pauseUI.classList.remove('visible');begin();};$('#to-menu').onclick=()=>{playing=false;paused=false;document.exitPointerLock();pauseUI.classList.remove('visible');menu.classList.add('visible');};$('#close-inventory').onclick=()=>{inventoryOpen=false;inventoryUI.classList.remove('visible');begin();};
 $('#next-level').onclick=()=>{completeUI.classList.remove('visible');if(level>=3){menu.classList.add('visible');return;}setLevel(level+1);begin();};
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==renderer.domElement&&playing){playing=false;paused=true;pauseUI.classList.add('visible');}});
 document.addEventListener('mousemove',e=>{if(!playing||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022;pitch=Math.max(-1.45,Math.min(1.45,pitch-e.movementY*.0022));camera.rotation.set(pitch,yaw,0,'YXZ');});
@@ -299,7 +311,8 @@ function updateMonster(monster:THREE.Group,brain:MonsterBrain,kind:'wanderer'|'s
   if(brain.timer<=0){brain.state='patrol';brain.think=0;}
  }
 }
-function animate(now:number){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;mixer?.update(dt);
+function animate(now:number){void loadUserMap().then(()=>{camera.position.set(120,1.65,60);yaw=Math.PI;pitch=0;camera.rotation.set(0,yaw,0,'YXZ');if(wanderer)wanderer.visible=false;if(smiler)smiler.visible=false;});
+requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;mixer?.update(dt);
 if(playing){if(smiler?.visible){updateMonster(smiler,smilerBrain,'smiler',dt);if(Math.hypot(smiler.position.x-camera.position.x,smiler.position.z-camera.position.z)<1.25)capturePlayer();}if(wanderer?.visible){updateMonster(wanderer,wandererBrain,'wanderer',dt);if(Math.hypot(wanderer.position.x-camera.position.x,wanderer.position.z-camera.position.z)<1.25)capturePlayer();}updateInteractHint();}
 
 if(playing){const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();if(keys.has('KeyW')||keys.has('ArrowUp'))d.add(f);if(keys.has('KeyS')||keys.has('ArrowDown'))d.sub(f);if(keys.has('KeyD')||keys.has('ArrowRight'))d.add(r);if(keys.has('KeyA')||keys.has('ArrowLeft'))d.sub(r);const moving=d.lengthSq()>0;const sprint=(keys.has('ShiftLeft')||keys.has('ShiftRight'))&&stamina>0&&moving;playerNoise=sprint?1.5:moving?.75:0;if(moving&&!isHiding)d.normalize();if(isHiding)d.set(0,0,0);stamina=Math.max(0,Math.min(100,stamina+(sprint?-34:22)*dt));const move=d.multiplyScalar((sprint?6.2:3.5)*dt),x=camera.position.clone(),z=camera.position.clone();x.x+=move.x;z.z+=move.z;if(!collides(x))camera.position.x=x.x;if(!collides(z))camera.position.z=z.z;camera.position.y=1.65;$('#stamina b').style.width=stamina+'%';}
