@@ -54,7 +54,7 @@ function freePosition(seed:number):THREE.Vector3{
  if(!candidates.length)return new THREE.Vector3(level<=1?20:0,0,level<=1?20:0);
  return candidates[Math.floor(Math.random()*candidates.length)]!;
 }
-function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number){
+function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number,facing=0){
  const g=new THREE.Group();
  if(kind==='locker'){
   const metal=new THREE.MeshStandardMaterial({color:0x66665f,roughness:.78,metalness:.28});
@@ -71,7 +71,7 @@ function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number
  }
  const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.09,.08),new THREE.MeshBasicMaterial({color}));lamp.position.set(0,kind==='locker'?1.65:kind==='generator'?1.05:.38,kind==='locker'?.43:.42);g.add(lamp);
  if(kind==='note'){const page=new THREE.Mesh(new THREE.BoxGeometry(.32,.025,.23),new THREE.MeshBasicMaterial({color:0xe7dfbd}));page.position.y=.55;g.add(page);}
- g.position.copy(pos);world.add(g);interactables.push({kind,label,object:g,active:true});return g;
+ g.position.copy(pos);if(kind==='locker')g.rotation.y=facing;world.add(g);interactables.push({kind,label,object:g,active:true});return g;
 }
 function setupLevelGameplay(n:number){
  clearInteractables();breakersOn=0;fusesFound=0;hasAccessCard=false;collectedItems.clear();updateInventory();
@@ -80,7 +80,7 @@ function setupLevelGameplay(n:number){
  else if(n===1){const picks=[...MAP_OBJECTIVE_SPAWNS].sort(()=>Math.random()-.5).slice(0,3);for(let i=0;i<3;i++)addInteractable('fuse','Fuse '+(i+1),new THREE.Vector3(picks[i][0],0,picks[i][1]),0xffdf85);addInteractable('generator','Power generator',MAP_GENERATOR_SPAWN.clone(),0x9bd6a0);updateObjective('Find 3 fuses and install them in the generator. Then reach the exit.');}
  else if(n===2){addInteractable('card','Safe-zone access card',freePosition(1),0x9bd6a0);addInteractable('note','Explorer note',freePosition(3),0xd8d0ad);updateObjective('Explore the safe zone and find the access card to open the next passage.');}
  else{addInteractable('note','Final note',freePosition(2),0xd8d0ad);updateObjective('Follow the daylight. Find out whether this exit is real.');}
- if(n<=1){for(let i=0;i<MAP_LOCKER_SPAWNS.length;i++){const [x,z]=MAP_LOCKER_SPAWNS[i];addInteractable('locker','Locker '+(i+1),new THREE.Vector3(x,0,z),0x9bd6a0);}}
+ if(n<=1){for(let i=0;i<MAP_LOCKER_SPAWNS.length;i++){const [x,z]=MAP_LOCKER_SPAWNS[i];addInteractable('locker','Locker '+(i+1),new THREE.Vector3(x,0,z),0x9bd6a0,MAP_LOCKER_FACING[i]);}}
  else{for(let i=0;i<7;i++)addInteractable('locker','Locker '+(i+1),freePosition(100+i),0x9bd6a0);}
  if(n<=1){const points=[...MAP_MONSTER_SPAWNS];const spawn=points[Math.floor(Math.random()*points.length)];const monster=n===0?wanderer:smiler;if(monster){monster.position.set(spawn[0],0,spawn[1]);monster.visible=true;}}
 }
@@ -137,6 +137,7 @@ const MAP_PLAYER_SPAWN=new THREE.Vector3(8.33,0,7.35);
 const MAP_OBJECTIVE_SPAWNS=[[40.21,3.17],[115.42,3.17],[156.29,15.73],[205.19,22.42],[25.95,27.19],[61.17,28.89],[235.65,38.92],[172.72,47.91],[182.53,52.37],[22.9,52.66],[48.08,55.42],[185.35,68.57],[3.05,72.21],[92.82,72.21],[211.06,77.79],[128.87,78.08],[52.84,84.54],[12.86,88.71],[102.86,93.17],[98.69,107.44],[75.44,113.31],[185.63,113.6],[3.35,114.72]] as const;
 const MAP_LOCKER_SPAWNS=[[126.3,25.66],[174.83,31.66],[236.93,46.56],[97.56,49.25],[2.42,55.41],[103.43,55.63],[77.77,56.01],[53.93,66.23],[126.34,66.12],[21.76,72.21],[197.56,116.43]] as const;
 const MAP_MONSTER_SPAWNS=[[53.25,12.52],[213.28,13.8],[143.66,14.32],[95.28,36.45],[12.64,43.38],[148.07,43.38],[214.98,44.78],[150.18,90.59],[67.04,92.7],[205.72,109.13],[12.21,113.67]] as const;
+const MAP_LOCKER_FACING=[1.71,-0.09,-1.33,-1.37,2.17,2.03,-1.64,-0.63,1.39,-1.42,-3.08] as const;
 const MAP_GENERATOR_SPAWN=new THREE.Vector3(159.93,0,89.0);
 const MAP_EXIT_SPAWN=new THREE.Vector3(235.95,0,114.72);
 function placeExit(x:number,z:number){if(exitPortal)scene.remove(exitPortal);const g=new THREE.Group();const frame=new THREE.Mesh(new THREE.TorusGeometry(1.05,.12,12,36),new THREE.MeshStandardMaterial({color:0x8b9c76,emissive:0x31482c,emissiveIntensity:1.5}));frame.position.y=1.35;g.add(frame);const glow=new THREE.Mesh(new THREE.PlaneGeometry(1.75,2.35),new THREE.MeshBasicMaterial({color:0x9bd6a0,transparent:true,opacity:.38,side:THREE.DoubleSide}));glow.position.set(0,1.35,-.03);g.add(glow);const lamp=new THREE.PointLight(0x9bd6a0,16,9);lamp.position.set(0,1.5,1);g.add(lamp);g.position.set(x,0,z);scene.add(g);exitPortal=g;}
