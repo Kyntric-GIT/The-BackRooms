@@ -23,11 +23,24 @@ const scene=new THREE.Scene(); scene.background=new THREE.Color(0xaaa17b); scene
 const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,150); camera.position.set(0,1.65,8);
 const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15; game.prepend(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xffedc5,0x4b4635,1.15)); scene.add(new THREE.AmbientLight(0xffe9b5,.35));
-const wallMat=new THREE.MeshStandardMaterial({color:0xb6aa78,roughness:.95}), floorMat=new THREE.MeshStandardMaterial({color:0x756c50,roughness:1}), ceilMat=new THREE.MeshStandardMaterial({color:0xbeb48a,roughness:1});
+function makePatternTexture(kind:'wall'|'floor'|'ceiling'){
+ const c=document.createElement('canvas');c.width=256;c.height=256;const ctx=c.getContext('2d')!;
+ if(kind==='wall'){ctx.fillStyle='#c9bd83';ctx.fillRect(0,0,256,256);for(let x=0;x<256;x+=32){ctx.fillStyle=x%64===0?'#d8cc91':'#b9ad76';ctx.fillRect(x,0,30,256);ctx.fillStyle='#a99d68';ctx.fillRect(x+29,0,2,256);}for(let y=-16;y<272;y+=32)for(let x=0;x<256;x+=32){ctx.strokeStyle='rgba(238,224,164,.42)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x+8,y+19);ctx.lineTo(x+16,y+9);ctx.lineTo(x+24,y+19);ctx.stroke();ctx.strokeStyle='rgba(119,105,62,.22)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+8,y+25);ctx.lineTo(x+16,y+15);ctx.lineTo(x+24,y+25);ctx.stroke();}}
+ else if(kind==='floor'){ctx.fillStyle='#aaa27c';ctx.fillRect(0,0,256,256);let seed=914;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};for(let i=0;i<18000;i++){const v=Math.floor(80+rand()*100);ctx.fillStyle='rgba('+v+','+(v-3)+','+(v-18)+','+(0.08+rand()*.18)+')';ctx.fillRect(rand()*256,rand()*256,1+rand()*2,1+rand()*2);}}
+ else{ctx.fillStyle='#292721';ctx.fillRect(0,0,256,256);for(let x=0;x<=256;x+=64){ctx.fillStyle='#171612';ctx.fillRect(x,0,3,256);ctx.fillStyle='#49453b';ctx.fillRect(x+3,0,1,256);}for(let y=0;y<=256;y+=64){ctx.fillStyle='#171612';ctx.fillRect(0,y,256,3);ctx.fillStyle='#49453b';ctx.fillRect(0,y+3,256,1);}}
+ const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;return t;
+}
+const wallMat=new THREE.MeshStandardMaterial({map:makePatternTexture('wall'),color:0xffffff,roughness:.96});
+const floorMat=new THREE.MeshStandardMaterial({map:makePatternTexture('floor'),color:0xffffff,roughness:1});
+const ceilMat=new THREE.MeshStandardMaterial({map:makePatternTexture('ceiling'),color:0xffffff,roughness:1});
 const walls:THREE.Mesh[]=[]; const lights:THREE.PointLight[]=[]; const world=new THREE.Group(); scene.add(world);
 let exitPortal: THREE.Group | null = null;
 function placeExit(x:number,z:number){if(exitPortal)scene.remove(exitPortal);const g=new THREE.Group();const frame=new THREE.Mesh(new THREE.TorusGeometry(1.05,.12,12,36),new THREE.MeshStandardMaterial({color:0x8b9c76,emissive:0x31482c,emissiveIntensity:1.5}));frame.position.y=1.35;g.add(frame);const glow=new THREE.Mesh(new THREE.PlaneGeometry(1.75,2.35),new THREE.MeshBasicMaterial({color:0x9bd6a0,transparent:true,opacity:.38,side:THREE.DoubleSide}));glow.position.set(0,1.35,-.03);g.add(glow);const lamp=new THREE.PointLight(0x9bd6a0,16,9);lamp.position.set(0,1.5,1);g.add(lamp);g.position.set(x,0,z);scene.add(g);exitPortal=g;}
-function addBox(w:number,h:number,d:number,x:number,y:number,z:number,mat:THREE.Material,solid=false){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.receiveShadow=true;m.castShadow=true;world.add(m);if(solid)walls.push(m);return m;}
+function addBox(w:number,h:number,d:number,x:number,y:number,z:number,mat:THREE.Material,solid=false){
+ const geometry=new THREE.BoxGeometry(w,h,d),pos=geometry.attributes.position,normal=geometry.attributes.normal,uv=geometry.attributes.uv;
+ for(let i=0;i<uv.count;i++){const nx=Math.abs(normal.getX(i)),ny=Math.abs(normal.getY(i)),px=pos.getX(i),py=pos.getY(i),pz=pos.getZ(i);let u=px,v=py;if(ny>.5){u=px;v=pz;}else if(nx>.5){u=pz;v=py;}uv.setXY(i,u,v);}
+ uv.needsUpdate=true;const m=new THREE.Mesh(geometry,mat);m.position.set(x,y,z);m.receiveShadow=true;m.castShadow=mat===wallMat;world.add(m);if(solid)walls.push(m);return m;
+}
 function clearWorld(){while(world.children.length){const o=world.children[0];world.remove(o);if(o instanceof THREE.Mesh){o.geometry.dispose();}}walls.length=0;lights.length=0;}
 function makeRoom(){clearWorld();addBox(44,.2,44,0,-.12,0,floorMat);addBox(44,.2,44,0,3.25,0,ceilMat);const h=3.15,t=.28;const wall=(x:number,z:number,w:number,d:number)=>addBox(w,h,d,x,h/2,z,wallMat,true);
 wall(-8,0,t,24);wall(8,-5,t,34);wall(0,-12,16,t);wall(-3,12,10,t);wall(-12,-7,t,10);wall(3,5,t,9);wall(12,8,t,12);wall(5,-1,6,t);wall(-5,-4,5,t);wall(-1,8,t,8);wall(4,-9,8,t);wall(-11,5,6,t);
@@ -62,7 +75,7 @@ async function loadUserMap(){
  addBox(width,.2,depth,120,-.12,60,floorMat);
  addBox(width,.2,depth,120,ceiling,60,ceilMat);
  for(const [x,z,w,d] of level0Rects) addBox(w,ceiling-.2,d,x+w/2,(ceiling-.2)/2,z+d/2,wallMat,true);
- for(let x=18;x<240;x+=48){for(let z=18;z<120;z+=40){const light=new THREE.PointLight(0xffe8b2,18,20,1.6);light.position.set(x,ceiling-.45,z);world.add(light);lights.push(light);}}
+ for(let x=18;x<240;x+=48){for(let z=18;z<120;z+=40){const light=new THREE.PointLight(0xffe8b2,15,19,1.6);light.position.set(x,ceiling-.42,z);world.add(light);lights.push(light);const panel=new THREE.Mesh(new THREE.BoxGeometry(2.5,.045,1.15),new THREE.MeshBasicMaterial({color:0xfff7df}));panel.position.set(x,ceiling-.08,z);world.add(panel);}}
  camera.position.set(2,1.65,2);
  placeExit(232,112);
  message('Original NullZoner map loaded — 382 map shapes.');
