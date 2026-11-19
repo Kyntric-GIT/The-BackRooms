@@ -85,7 +85,7 @@ async function loadUserMap(){
  const panelMat=new THREE.MeshBasicMaterial({color:0xfff7df});
 for(let x=10;x<240;x+=15){for(let z=8;z<120;z+=16){
  const panel=new THREE.Mesh(lightPanelGeometry,panelMat);panel.position.set(x,ceiling-.08,z);world.add(panel);
- if(x%30===10&&z%32===8){const light=new THREE.PointLight(0xffe8b2,13,23,1.6);light.position.set(x,ceiling-.42,z);world.add(light);lights.push(light);}
+ if(x%60===10&&z%32===8){const light=new THREE.PointLight(0xffe8b2,17,32,1.5);light.position.set(x,ceiling-.42,z);world.add(light);lights.push(light);}
 }}
  camera.position.set(2,1.65,2);
  placeExit(232,112);
