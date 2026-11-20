@@ -317,7 +317,6 @@ const MAP_MONSTER_SPAWNS=[[53.25,12.52],[213.28,13.8],[143.66,14.32],[95.28,36.4
 const MAP_NOCLIP_SPAWNS=[[20,10.4],[58.4,10.4],[96.8,10.4],[138.4,10.4],[180,16.8],[218.4,10.4],[16.8,36],[58.4,36],[103.2,36],[138.4,36],[176.8,36],[221.6,36],[20,55.2],[58.4,61.6],[100,61.6],[138.4,61.6],[183.2,61.6],[218.4,61.6],[20,84],[61.6,80.8],[100,84],[138.4,84],[180,80.8],[218.4,84],[20,106.4],[58.4,106.4],[100,109.6],[138.4,106.4],[180,109.6],[218.4,106.4]] as const;
 // Every orange marker is a real noclip passage, except the one too close to the player start.
 const NOCLIP_SPAWN_EXCLUSION=26;
-const NOCLIP_ZONE_RADIUS=4.4;
 function isActiveNoclipSpawn(x:number,z:number){return level<=1&&Math.hypot(x-MAP_PLAYER_SPAWN.x,z-MAP_PLAYER_SPAWN.z)>=NOCLIP_SPAWN_EXCLUSION;}
 function addSolidCollisionBounds(b:SolidBounds){
  const cuts:{axis:'x'|'z';at:number}[]=[];
@@ -343,7 +342,7 @@ function addSolidCollisionBounds(b:SolidBounds){
  }
  if(!cuts.length){registerSolidBounds(b);return;}
  const axis=cuts[0].axis,lo=axis==='z'?b.minZ:b.minX,hi=axis==='z'?b.maxZ:b.maxX;
- const ranges=cuts.filter(c=>c.axis===axis).map(c=>[Math.max(lo,c.at-2.2),Math.min(hi,c.at+2.2)] as [number,number]).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
+ const ranges=cuts.filter(c=>c.axis===axis).map(c=>[Math.max(lo,c.at-.62),Math.min(hi,c.at+.62)] as [number,number]).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
  const merged:[number,number][]=[];
  for(const r of ranges){const last=merged[merged.length-1];if(last&&r[0]<=last[1])last[1]=Math.max(last[1],r[1]);else merged.push([...r]);}
  let cursor=lo;
@@ -514,7 +513,8 @@ document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElemen
 document.addEventListener('mousemove',e=>{if(!playing||isHiding||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022*mouseSensitivity;pitch=Math.max(-1.45,Math.min(1.45,pitch-(invertMouseY?-1:1)*e.movementY*.0022*mouseSensitivity));camera.rotation.set(pitch,yaw,0,'YXZ');});
 document.addEventListener('keydown',e=>{if(waitingForBind){e.preventDefault();if(e.code==='Escape'){waitingForBind=null;$('#bind-status').textContent='Binding cancelled.';return;}if(Object.values(bindings).includes(e.code)){($('#bind-status')).textContent='That key is already assigned.';return;}bindings[waitingForBind]=e.code;waitingForBind=null;saveSettings();refreshBindLabels();$('#bind-status').textContent='Controls saved.';return;}keys.add(e.code);if(e.code==='Escape'&&playing){pause();return;}if(playing&&!e.repeat&&e.code===bindings.crouch){crouched=!crouched;if(crouched)crawling=false;message(crouched?'Crouching.':'Standing.');}if(playing&&!e.repeat&&e.code===bindings.crawl){crawling=!crawling;if(crawling)crouched=false;message(crawling?'Crawling.':'Standing.');}if(e.code==='Backslash'&&!e.repeat){cheatMap=!cheatMap;$('#debug-map').style.display='none';espOverlay.style.display=cheatMap&&playing?'block':'none';message('Through-wall highlights '+(cheatMap?'enabled':'disabled')+'.');}if(e.code===bindings.flashlight&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' ['+bindings.flashlight.replace('Key','')+']';}if(e.code===bindings.inventory&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){stopIntercomMusic();playing=false;document.exitPointerLock();}else begin();}if(e.code===bindings.interact&&!e.repeat&&playing){handleWorldInteraction();}if(e.code===bindings.spray&&!e.repeat&&playing){sprayMark();}});
 document.addEventListener('keyup',e=>keys.delete(e.code));document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause();});
-const radius=.32;function collides(p:THREE.Vector3){if(level<=1&&MAP_NOCLIP_SPAWNS.some(([x,z])=>isActiveNoclipSpawn(x,z)&&Math.hypot(p.x-x,p.z-z)<=NOCLIP_ZONE_RADIUS))return false;const minX=Math.floor((p.x-radius)/CELL_SIZE),maxX=Math.floor((p.x+radius)/CELL_SIZE),minZ=Math.floor((p.z-radius)/CELL_SIZE),maxZ=Math.floor((p.z+radius)/CELL_SIZE);for(let gx=minX;gx<=maxX;gx++)for(let gz=minZ;gz<=maxZ;gz++){const bucket=solidGrid.get(gx+','+gz);if(!bucket)continue;for(const b of bucket)if(p.x+radius>b.minX&&p.x-radius<b.maxX&&p.z+radius>b.minZ&&p.z-radius<b.maxZ)return true;}return false;}
+const radius=.32;function collides(p:THREE.Vector3){const minX=Math.floor((p.x-radius)/CELL_SIZE),maxX=Math.floor((p.x+radius)/CELL_SIZE),minZ=Math.floor((p.z-radius)/CELL_SIZE),maxZ=Math.floor((p.z+radius)/CELL_SIZE);for(let gx=minX;gx<=maxX;gx++)for(let gz=minZ;gz<=maxZ;gz++){const bucket=solidGrid.get(gx+','+gz);if(!bucket)continue;for(const b of bucket)if(p.x+radius>b.minX&&p.x-radius<b.maxX&&p.z+radius>b.minZ&&p.z-radius<b.maxZ)return true;}return false;}
+function monsterCollides(_p:THREE.Vector3){return false;} // Monsters ghost through map walls so they cannot become trapped.
 type MonsterState='patrol'|'investigate'|'search'|'chase'|'stalk'|'locker-check';
 type MonsterBrain={state:MonsterState;target:THREE.Vector3;lastKnown:THREE.Vector3;origin:THREE.Vector3;timer:number;think:number;};
 const wandererBrain:MonsterBrain={state:'patrol',target:new THREE.Vector3(26,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
@@ -543,9 +543,9 @@ function findLocalMonsterPath(start:THREE.Vector3,target:THREE.Vector3):THREE.Ve
  const minX=baseX-span,maxX=baseX+span,minZ=baseZ-span,maxZ=baseZ+span;
  const key=(x:number,z:number)=>x+','+z,world=(x:number,z:number)=>new THREE.Vector3(x*step,0,z*step);
  let goalX=Math.round(target.x/step),goalZ=Math.round(target.z/step);
- if(collides(world(goalX,goalZ))){
+ if(monsterCollides(world(goalX,goalZ))){
   let best=Infinity,found=false;
-  for(let r=1;r<=5&&!found;r++)for(let x=-r;x<=r;x++)for(let z=-r;z<=r;z++){if(Math.max(Math.abs(x),Math.abs(z))!==r)continue;const px=goalX+x,pz=goalZ+z,p=world(px,pz),d=p.distanceTo(target);if(d<best&&!collides(p)){best=d;goalX=px;goalZ=pz;found=true;}}
+  for(let r=1;r<=5&&!found;r++)for(let x=-r;x<=r;x++)for(let z=-r;z<=r;z++){if(Math.max(Math.abs(x),Math.abs(z))!==r)continue;const px=goalX+x,pz=goalZ+z,p=world(px,pz),d=p.distanceTo(target);if(d<best&&!monsterCollides(p)){best=d;goalX=px;goalZ=pz;found=true;}}
   if(!found)return [];
  }
  const sx=baseX,sz=baseZ,startKey=key(sx,sz),goalKey=key(goalX,goalZ);
@@ -559,8 +559,8 @@ function findLocalMonsterPath(start:THREE.Vector3,target:THREE.Vector3):THREE.Ve
   for(const [dx,dz] of dirs){
    const nx=current.x+dx,nz=current.z+dz;
    if(nx<minX||nx>maxX||nz<minZ||nz>maxZ)continue;
-   const p=world(nx,nz);if(collides(p))continue;
-   if(dx!==0&&dz!==0&&(collides(world(current.x+dx,current.z))||collides(world(current.x,current.z+dz))))continue;
+   const p=world(nx,nz);if(monsterCollides(p))continue;
+   if(dx!==0&&dz!==0&&(monsterCollides(world(current.x+dx,current.z))||monsterCollides(world(current.x,current.z+dz))))continue;
    const nk=key(nx,nz),ng=current.g+(dx&&dz?1.414:1);
    if(ng>=(cost.get(nk)??Infinity))continue;
    cost.set(nk,ng);came.set(nk,ck);open.push({x:nx,z:nz,g:ng,f:ng+Math.hypot(goalX-nx,goalZ-nz)});
@@ -579,7 +579,7 @@ function moveMonster(monster:THREE.Object3D,target:THREE.Vector3,speed:number,dt
  const cache=monsterPathCache.get(monster)??{points:[],index:0,target:new THREE.Vector3(NaN,0,NaN),repathAt:0,lastPosition:monster.position.clone(),stuckFor:0};
  const moved=monster.position.distanceTo(cache.lastPosition);
  cache.stuckFor=moved<.012?cache.stuckFor+dt:0;cache.lastPosition.copy(monster.position);
- const blocked=collides(directProbe);
+ const blocked=monsterCollides(directProbe);
  const targetChanged=cache.target.distanceTo(target)>2.2;
  if(blocked&&(targetChanged||cache.repathAt<=0||cache.repathAt<performance.now()/1000||cache.index>=cache.points.length||cache.stuckFor>.45)){
   // Plan a short local route toward a waypoint in the target's direction; repeat as the monster advances.
@@ -597,22 +597,22 @@ function moveMonster(monster:THREE.Object3D,target:THREE.Vector3,speed:number,dt
  if(!blocked){
   cache.points=[];cache.index=0;
   const next=monster.position.clone().add(new THREE.Vector3(moveX*speed*dt,0,moveZ*speed*dt));
-  if(!collides(next))monster.position.copy(next);
+  if(!monsterCollides(next))monster.position.copy(next);
   else cache.repathAt=0;
  }else{
   const step=Math.min(speed*dt,Math.max(.08,monster.position.distanceTo(cache.points[cache.index]||target)));
   const next=monster.position.clone().add(new THREE.Vector3(moveX*step,0,moveZ*step));
-  if(!collides(next))monster.position.copy(next);
+  if(!monsterCollides(next))monster.position.copy(next);
   else{
    const offsets=[.45,-.45,.9,-.9,1.45,-1.45,2.1,-2.1,Math.PI];
    let best:THREE.Vector3|null=null,bestScore=-Infinity;
-   for(const offset of offsets){const a=desired+offset,vx=Math.sin(a),vz=Math.cos(a),probe=monster.position.clone().add(new THREE.Vector3(vx*.72,0,vz*.72));if(collides(probe))continue;const score=Math.cos(offset);if(score>bestScore){bestScore=score;best=new THREE.Vector3(vx,0,vz);}}
-   if(best){const sidestep=monster.position.clone().add(best.multiplyScalar(Math.min(speed*dt,.12)));if(!collides(sidestep))monster.position.copy(sidestep);}
+   for(const offset of offsets){const a=desired+offset,vx=Math.sin(a),vz=Math.cos(a),probe=monster.position.clone().add(new THREE.Vector3(vx*.72,0,vz*.72));if(monsterCollides(probe))continue;const score=Math.cos(offset);if(score>bestScore){bestScore=score;best=new THREE.Vector3(vx,0,vz);}}
+   if(best){const sidestep=monster.position.clone().add(best.multiplyScalar(Math.min(speed*dt,.12)));if(!monsterCollides(sidestep))monster.position.copy(sidestep);}
    cache.repathAt=0;
   }
  }
  monster.rotation.y=Math.atan2(moveX,moveZ);monsterPathCache.set(monster,cache);
- return moved>.001||!collides(directProbe);
+ return moved>.001||!monsterCollides(directProbe);
 }
 function updateMonster(monster:THREE.Object3D,brain:MonsterBrain,kind:'wanderer'|'smiler',dt:number){
  if(brain.state==='locker-check'){
