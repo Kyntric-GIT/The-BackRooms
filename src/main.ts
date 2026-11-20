@@ -126,7 +126,7 @@ function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number
  // and breaker model into one interactable so activating the breaker remains unchanged.
  const propSpecs: {file:string;height:number;z:number}[] =
   kind==='breaker'
-   ? [{file:'electrical_box.glb',height:1.85,z:0},{file:'circuit_breaker.glb',height:.82,z:.48}]
+   ? [{file:'circuit_breaker.glb',height:.82,z:0}]
    : kind==='fuse'
     ? [{file:'fuse.glb',height:.42,z:0}]
     : kind==='generator'
@@ -154,10 +154,26 @@ function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number
  }
  g.position.copy(pos);if(kind==='locker')g.rotation.y=facing;world.add(g);interactables.push({kind,label,object:g,active:true});return g;
 }
+function addStaticProp(file:string,pos:THREE.Vector3,height:number){
+ const root=new THREE.Group();
+ root.position.copy(pos);
+ world.add(root);
+ loader.load(import.meta.env.BASE_URL+'models/'+file,(asset)=>{
+  const model=asset.scene;
+  const bounds=new THREE.Box3().setFromObject(model);
+  const size=bounds.getSize(new THREE.Vector3());
+  const center=bounds.getCenter(new THREE.Vector3());
+  const scale=height/Math.max(size.y,.001);
+  model.scale.setScalar(scale);
+  model.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
+  root.add(model);
+ },undefined,(err)=>console.warn('Static prop could not load: '+file,err));
+ return root;
+}
 function setupLevelGameplay(n:number){
  clearInteractables();breakersOn=0;fusesFound=0;hasAccessCard=false;collectedItems.clear();updateInventory();
  playerSpawn.copy(level<=1?MAP_PLAYER_SPAWN:camera.position);playerSpawn.y=1.65;camera.position.copy(playerSpawn);captureCooldown=0;
- if(n===0){const picks=[...MAP_OBJECTIVE_SPAWNS].sort(()=>Math.random()-.5).slice(0,3);for(let i=0;i<3;i++)addInteractable('breaker','Breaker box '+(i+1),new THREE.Vector3(picks[i][0],0,picks[i][1]),0xe5d58c);addInteractable('note','Explorer note',freePosition(4),0xd8d0ad);updateObjective('Restore power: activate the 3 breaker boxes. Then find the exit.');}
+ if(n===0){const picks=[...MAP_OBJECTIVE_SPAWNS].sort(()=>Math.random()-.5).slice(0,3);for(let i=0;i<3;i++)addInteractable('breaker','Breaker box '+(i+1),new THREE.Vector3(picks[i][0],0,picks[i][1]),0xe5d58c);addStaticProp('electrical_box.glb',freePosition(77),1.85);addInteractable('note','Explorer note',freePosition(4),0xd8d0ad);updateObjective('Find and activate all 3 breaker boxes. One electrical box is located elsewhere in the level. Then find the exit.');}
  else if(n===1){const picks=[...MAP_OBJECTIVE_SPAWNS].sort(()=>Math.random()-.5).slice(0,3);for(let i=0;i<3;i++)addInteractable('fuse','Fuse '+(i+1),new THREE.Vector3(picks[i][0],0,picks[i][1]),0xffdf85);addInteractable('generator','Power generator',MAP_GENERATOR_SPAWN.clone(),0x9bd6a0);updateObjective('Find 3 fuses and install them in the generator. Then reach the exit.');}
  else if(n===2){addInteractable('card','Safe-zone access card',freePosition(1),0x9bd6a0);addInteractable('note','Explorer note',freePosition(3),0xd8d0ad);updateObjective('Explore the safe zone and find the access card to open the next passage.');}
  else{addInteractable('note','Final note',freePosition(2),0xd8d0ad);updateObjective('Follow the daylight. Find out whether this exit is real.');}
