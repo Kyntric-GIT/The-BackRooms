@@ -222,61 +222,44 @@ function sprayMark(){if(!playing||isHiding)return;const mark=new THREE.Group();c
 function clearSprayMarks(){for(const mark of sprayMarks)world.remove(mark);sprayMarks.length=0;}
 function setLevel(n:number){clearSprayMarks();if(exitPortal){scene.remove(exitPortal);exitPortal=null;}level=n;hemiLight.intensity=n===1?.58:1.3;ambientLight.intensity=n===1?.2:.48;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];exitReady=false;scene.background=new THREE.Color(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b);scene.fog=new THREE.Fog(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b,n===1?7:12,n===1?39:55);if(n<=1){void loadUserMap().then(()=>setupLevelGameplay(n));}else{makeRoom();camera.position.set(0,1.65,8);setupLevelGameplay(n);}if(wanderer)wanderer.visible=n===0;smilers.forEach(sprite=>sprite.visible=n===1);message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
 
-// Original synthesized Daisy Bell melody (the 1892 composition is public domain),
-// processed to sound like a distant, narrow-band PA/intercom. No recording is embedded.
+// Uploaded Daisy Bell recording, routed through a narrow-band PA/intercom filter.
+let intercomAudio:HTMLAudioElement|null=null;
 let intercomContext:AudioContext|null=null;
-let intercomTimer:number|undefined;
-let lyricTimer:number|undefined;
-let lyricIndex=0;
-let intercomNodes:AudioNode[]=[];
-const daisyLyrics=[
- 'Daisy, Daisy, give me your answer, do.',
- 'I am half crazy, all for the love of you.',
- 'It will not be a stylish marriage,',
- 'I cannot afford a carriage.',
- 'But you will look sweet upon the seat',
- 'of a bicycle built for two.',
- 'We will go tandem as man and wife,',
- 'Daisy, Daisy, this is the life.',
- 'You will be the bell that I will ring,',
- 'and we will go cycling in the spring.',
- 'Daisy, Daisy, give me your answer, do.',
- 'I am half crazy, all for the love of you.',
- 'It will not be a stylish marriage,',
- 'I cannot afford a carriage.',
- 'But you will look sweet upon the seat',
- 'of a bicycle built for two.'
-];
-function stopIntercomMusic(){
- if(intercomTimer!==undefined){window.clearInterval(intercomTimer);intercomTimer=undefined;}
- if(lyricTimer!==undefined){window.clearTimeout(lyricTimer);lyricTimer=undefined;}
- if('speechSynthesis' in window)window.speechSynthesis.cancel();
- if(intercomContext){const old=intercomContext;intercomContext=null;intercomNodes=[];void old.close().catch(()=>{});}
+let intercomGain:GainNode|null=null;
+let intercomSource:MediaElementAudioSourceNode|null=null;
+function getIntercomAudio(){
+ if(!intercomAudio){
+  intercomAudio=new Audio(import.meta.env.BASE_URL+'audio/daisy-bell-intercom.mp3');
+  intercomAudio.loop=true;
+  intercomAudio.preload='auto';
+  intercomAudio.volume=1;
+ }
+ if(!intercomContext){
+  const Ctx=window.AudioContext||(window as any).webkitAudioContext;
+  if(Ctx){
+   intercomContext=new Ctx();
+   intercomSource=intercomContext.createMediaElementSource(intercomAudio);
+   const bandpass=intercomContext.createBiquadFilter();bandpass.type='bandpass';bandpass.frequency.value=1250;bandpass.Q.value=.72;
+   const lowpass=intercomContext.createBiquadFilter();lowpass.type='lowpass';lowpass.frequency.value=2900;
+   const grit=intercomContext.createWaveShaper();const curve=new Float32Array(256);for(let i=0;i<curve.length;i++){const x=i*2/(curve.length-1)-1;curve[i]=Math.tanh(x*1.8)*.9;}grit.curve=curve;grit.oversample='2x';
+   intercomGain=intercomContext.createGain();intercomGain.gain.value=.42;
+   intercomSource.connect(bandpass);bandpass.connect(lowpass);lowpass.connect(grit);grit.connect(intercomGain);intercomGain.connect(intercomContext.destination);
+  }
+ }
+ return intercomAudio;
 }
-function startIntercomLyrics(){
- if(!('speechSynthesis' in window)||!playing)return;
- window.speechSynthesis.cancel();lyricIndex=0;
- const speakNext=()=>{if(!playing)return;const line=daisyLyrics[lyricIndex%daisyLyrics.length];const utterance=new SpeechSynthesisUtterance(line);utterance.lang='en-US';utterance.rate=.76;utterance.pitch=.48;utterance.volume=.72;utterance.onend=()=>{if(!playing)return;lyricIndex++;lyricTimer=window.setTimeout(speakNext,520);};utterance.onerror=()=>{if(!playing)return;lyricIndex++;lyricTimer=window.setTimeout(speakNext,650);};window.speechSynthesis.speak(utterance);};
- lyricTimer=window.setTimeout(speakNext,900);
+function stopIntercomMusic(){
+ if(intercomAudio)intercomAudio.pause();
+ if(intercomContext&&intercomContext.state==='running')void intercomContext.suspend();
 }
 function startIntercomMusic(){
  if(!playing)return;
- if(intercomContext){if(intercomContext.state==='suspended')void intercomContext.resume();return;}
  try{
-  const ctx=new AudioContext();intercomContext=ctx;
-  const master=ctx.createGain();master.gain.value=.0001;master.connect(ctx.destination);master.gain.setTargetAtTime(.055,ctx.currentTime,.8);
-  const filter=ctx.createBiquadFilter();filter.type='bandpass';filter.frequency.value=1050;filter.Q.value=.82;filter.connect(master);
-  const grit=ctx.createWaveShaper();const curve=new Float32Array(256);for(let i=0;i<curve.length;i++){const x=i*2/(curve.length-1)-1;curve[i]=Math.tanh(x*2.6)*.82;}grit.curve=curve;grit.oversample='2x';grit.connect(filter);
-  const carrier=ctx.createOscillator();carrier.type='square';carrier.frequency.value=392;const voice=ctx.createGain();voice.gain.value=.24;carrier.connect(voice);voice.connect(grit);carrier.start();
-  const undertone=ctx.createOscillator();undertone.type='triangle';undertone.frequency.value=196;const underGain=ctx.createGain();underGain.gain.value=.075;undertone.connect(underGain);underGain.connect(grit);undertone.start();
-  const trem=ctx.createOscillator();trem.type='sine';trem.frequency.value=5.1;const tremGain=ctx.createGain();tremGain.gain.value=.012;trem.connect(tremGain);tremGain.connect(master.gain);trem.start();
-  const noiseBuffer=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate),noiseData=noiseBuffer.getChannelData(0);for(let i=0;i<noiseData.length;i++)noiseData[i]=(Math.random()*2-1)*.22;
-  const noise=ctx.createBufferSource();noise.buffer=noiseBuffer;noise.loop=true;const noiseFilter=ctx.createBiquadFilter();noiseFilter.type='bandpass';noiseFilter.frequency.value=1450;noiseFilter.Q.value=.7;const noiseGain=ctx.createGain();noiseGain.gain.value=.018;noise.connect(noiseFilter);noiseFilter.connect(noiseGain);noiseGain.connect(master);noise.start();
-  intercomNodes=[carrier,undertone,trem,noise,master];
-  const notes=[392,330,262,294,330,262,294,330,349,392,440,440,392,330,262,294,330,262,294,330,294,262,294,330,262,0];let index=0;
-  const playNote=()=>{if(!intercomContext||ctx.state==='closed')return;const hz=notes[index%notes.length];const now=ctx.currentTime;carrier.frequency.setTargetAtTime(hz||392,now,.025);undertone.frequency.setTargetAtTime((hz||392)/2,now,.035);voice.gain.setTargetAtTime(hz?(.18+(index%4===0?.045:0)):.018,now,.025);index++;};
-  playNote();intercomTimer=window.setInterval(playNote,390);startIntercomLyrics();
- }catch(err){console.warn('Intercom audio unavailable',err);stopIntercomMusic();}
+  const audio=getIntercomAudio();
+  if(intercomContext&&intercomContext.state==='suspended')void intercomContext.resume();
+  const result=audio.play();
+  if(result&&typeof result.catch==='function')result.catch(err=>console.warn('Intercom recording could not play',err));
+ }catch(err){console.warn('Intercom audio unavailable',err);}
 }
 
 function begin(){keys.clear();playing=true;startIntercomMusic();paused=false;menu.classList.remove('visible');pauseUI.classList.remove('visible');completeUI.classList.remove('visible');$('#tutorial').classList.remove('visible');renderer.domElement.requestPointerLock();}
