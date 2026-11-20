@@ -95,18 +95,39 @@ function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number
   part(1.0,2.0,.055,0,1.1,-.37,inside);
   const door=new THREE.Group();const dp=(w:number,h:number,x:number,y:number)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,.065),metal);m.position.set(x,y,0);door.add(m);};dp(.08,2.04,-.47,0);dp(.08,2.04,.47,0);dp(.94,.09,0,.975);dp(.94,.09,0,-.975);dp(.94,.42,0,-.72);dp(.94,.34,0,.79);dp(.94,.055,0,-.18);dp(.94,.055,0,.32);door.position.set(0,1.1,.41);door.rotation.y=-.95;g.add(door);g.userData.lockerDoor=door;
   const handle=new THREE.Mesh(new THREE.BoxGeometry(.045,.25,.06),new THREE.MeshStandardMaterial({color:0x77766c,metalness:.7,roughness:.35}));handle.position.set(-.14,1.1,.62);g.add(handle);
+ }else if(kind==='breaker'){
+  // Level 0 breaker is housed inside a wall-mounted electrical distribution cabinet.
+  const cabinet=new THREE.MeshStandardMaterial({color:0x77786f,roughness:.72,metalness:.34});
+  const edge=new THREE.MeshStandardMaterial({color:0x373a35,roughness:.82,metalness:.18});
+  const panel=new THREE.MeshStandardMaterial({color:0x252923,roughness:.9,metalness:.12});
+  const switchMat=new THREE.MeshStandardMaterial({color:0xc8c4ae,roughness:.55,metalness:.3});
+  const part=(w:number,h:number,d:number,x:number,y:number,z:number,mat:THREE.Material)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);g.add(m);return m;};
+  part(.92,1.42,.42,0,.72,0,cabinet);
+  part(.78,1.25,.035,0,.73,.231,edge);
+  part(.69,1.15,.035,0,.73,.254,cabinet);
+  part(.52,.78,.025,0,.78,.276,panel);
+  // Internal breaker rails and the individual switch toggle.
+  for(let i=0;i<3;i++)part(.42,.035,.025,0,.51+i*.25,.297,edge);
+  part(.16,.25,.075,0,.79,.33,switchMat);
+  const lever=new THREE.Mesh(new THREE.BoxGeometry(.055,.23,.07),new THREE.MeshStandardMaterial({color:0xd9d5c2,roughness:.4,metalness:.45}));
+  lever.position.set(0,.82,.385);lever.rotation.z=-.22;g.add(lever);
+  part(.18,.055,.025,0,1.22,.278,edge);
+  const indicator=new THREE.Mesh(new THREE.SphereGeometry(.035,8,6),new THREE.MeshBasicMaterial({color}));indicator.position.set(.25,1.28,.29);g.add(indicator);
+  // Small cabinet latch and warning plate.
+  part(.035,.13,.045,.34,.73,.29,switchMat);
+  part(.32,.07,.018,0,.16,.277,edge);
  }else{
   const body=new THREE.Mesh(new THREE.BoxGeometry(kind==='generator'?1.1:.55,kind==='generator'?1.35:.45,kind==='generator'?.8:.45),new THREE.MeshStandardMaterial({color:0x55534a,roughness:.85,metalness:.12}));
   body.position.y=kind==='generator'?.68:.28;g.add(body);
  }
- if(kind!=='locker'){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.09,.08),new THREE.MeshBasicMaterial({color}));lamp.position.set(0,kind==='generator'?1.05:.38,.42);g.add(lamp);}
+ if(kind!=='locker'&&kind!=='breaker'){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.09,.08),new THREE.MeshBasicMaterial({color}));lamp.position.set(0,kind==='generator'?1.05:.38,.42);g.add(lamp);}
  if(kind==='note'){const page=new THREE.Mesh(new THREE.BoxGeometry(.32,.025,.23),new THREE.MeshBasicMaterial({color:0xe7dfbd}));page.position.y=.55;g.add(page);}
  g.position.copy(pos);if(kind==='locker')g.rotation.y=facing;world.add(g);interactables.push({kind,label,object:g,active:true});return g;
 }
 function setupLevelGameplay(n:number){
  clearInteractables();breakersOn=0;fusesFound=0;hasAccessCard=false;collectedItems.clear();updateInventory();
  playerSpawn.copy(level<=1?MAP_PLAYER_SPAWN:camera.position);playerSpawn.y=1.65;camera.position.copy(playerSpawn);captureCooldown=0;
- if(n===0){const picks=[...MAP_OBJECTIVE_SPAWNS].sort(()=>Math.random()-.5).slice(0,3);for(let i=0;i<3;i++)addInteractable('breaker','Breaker '+(i+1),new THREE.Vector3(picks[i][0],0,picks[i][1]),0xe5d58c);addInteractable('note','Explorer note',freePosition(4),0xd8d0ad);updateObjective('Restore power: activate the 3 breaker boxes. Then find the exit.');}
+ if(n===0){const picks=[...MAP_OBJECTIVE_SPAWNS].sort(()=>Math.random()-.5).slice(0,3);for(let i=0;i<3;i++)addInteractable('breaker','Breaker box '+(i+1),new THREE.Vector3(picks[i][0],0,picks[i][1]),0xe5d58c);addInteractable('note','Explorer note',freePosition(4),0xd8d0ad);updateObjective('Restore power: activate the 3 breaker boxes. Then find the exit.');}
  else if(n===1){const picks=[...MAP_OBJECTIVE_SPAWNS].sort(()=>Math.random()-.5).slice(0,3);for(let i=0;i<3;i++)addInteractable('fuse','Fuse '+(i+1),new THREE.Vector3(picks[i][0],0,picks[i][1]),0xffdf85);addInteractable('generator','Power generator',MAP_GENERATOR_SPAWN.clone(),0x9bd6a0);updateObjective('Find 3 fuses and install them in the generator. Then reach the exit.');}
  else if(n===2){addInteractable('card','Safe-zone access card',freePosition(1),0x9bd6a0);addInteractable('note','Explorer note',freePosition(3),0xd8d0ad);updateObjective('Explore the safe zone and find the access card to open the next passage.');}
  else{addInteractable('note','Final note',freePosition(2),0xd8d0ad);updateObjective('Follow the daylight. Find out whether this exit is real.');}
@@ -379,7 +400,7 @@ function updateEspHighlights(){
   const onScreen=x>=-100&&x<=innerWidth+100&&y>=-40&&y<=innerHeight+40;
   el.style.display=inFront&&onScreen?'block':'none';el.style.left=x+'px';el.style.top=y+'px';
  };
- for(const item of interactables){if(!item.active)continue;const labels:Record<string,[string,string]>={fuse:['FUSE','#48cfff'],breaker:['BREAKER','#48cfff'],card:['ACCESS CARD','#48cfff'],note:['NOTE','#d8d0ad'],generator:['GENERATOR','#ff78cc'],locker:['LOCKER','#b9c3c5']};const data=labels[item.kind];if(data)add('item-'+item.object.uuid,data[0]+' · '+Math.round(camera.position.distanceTo(item.object.position))+'m',data[1],item.object.position.clone().add(new THREE.Vector3(0,item.kind==='locker'?2.35:1.25,0)));}
+ for(const item of interactables){if(!item.active)continue;const labels:Record<string,[string,string]>={fuse:['FUSE','#48cfff'],breaker:['BREAKER BOX','#48cfff'],card:['ACCESS CARD','#48cfff'],note:['NOTE','#d8d0ad'],generator:['GENERATOR','#ff78cc'],locker:['LOCKER','#b9c3c5']};const data=labels[item.kind];if(data)add('item-'+item.object.uuid,data[0]+' · '+Math.round(camera.position.distanceTo(item.object.position))+'m',data[1],item.object.position.clone().add(new THREE.Vector3(0,item.kind==='locker'?2.35:1.25,0)));}
  if(level<=1)MAP_NOCLIP_SPAWNS.forEach(([x,z],i)=>add('noclip-'+i,'NOCLIP '+String(i+1).padStart(2,'0')+' · '+Math.round(camera.position.distanceTo(new THREE.Vector3(x,0,z)))+'m','#ff922e',new THREE.Vector3(x,1.8,z),'noclip'));
  if(wanderer?.visible)add('monster-'+wanderer.uuid,'LONELY WANDERER · '+Math.round(camera.position.distanceTo(wanderer.position))+'m','#ff4545',wanderer.position.clone().add(new THREE.Vector3(0,2.4,0)),'monster');smilers.forEach((sprite,i)=>{if(sprite.visible)add('smiler-'+i,'SMILER '+(i+1)+' · '+Math.round(camera.position.distanceTo(sprite.position))+'m','#ff4545',sprite.position.clone().add(new THREE.Vector3(0,1.3,0)),'monster');});
  if(exitPortal)add('exit-'+exitPortal.uuid,'EXIT · '+Math.round(camera.position.distanceTo(exitPortal.position))+'m','#32eeee',exitPortal.position.clone().add(new THREE.Vector3(0,2.9,0)),'exit');
