@@ -54,3 +54,5 @@
 #backrooms-root:has(#tutorial.visible) #esp-overlay,
 #backrooms-root:has(#tutorial.visible) #import-map,
 #backrooms-root:has(#tutorial.visible) #import-message{display:none!important}
+
+#hotbar .slot:last-child{color:#ffb47d}

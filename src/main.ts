@@ -10,7 +10,7 @@ app.innerHTML = `
   <div id="hud"><div class="brand">THE BACKROOMS <span id="level-name">LEVEL 0 — LOBBY</span></div><div class="hud-right"><span id="light-status">FLASHLIGHT: OFF [F]</span><span id="stamina">STAMINA <i><b></b></i></span></div></div>
   <div id="crosshair"></div><div id="vignette"></div>
   <div id="notice">Find a way out.</div>
-  <div id="hotbar"><div class="slot selected"><small>1</small>Flashlight</div><div class="slot"><small>2</small>Key</div><div class="slot"><small>3</small>Note</div><div class="slot"><small>4</small>Empty</div><div class="slot"><small>5</small>Empty</div></div>
+  <div id="hotbar"><div class="slot selected"><small>1</small>Flashlight</div><div class="slot"><small>2</small>Key</div><div class="slot"><small>3</small>Note</div><div class="slot"><small>4</small>Empty</div><div class="slot"><small>5</small>Spray [G]</div></div>
   <section id="menu" class="visible">
     <div class="menu-brand"><h1>THE<br><span>BACKROOMS</span></h1><p>YOU HAVE NO CLIPPED OUT OF REALITY</p></div>
     <div class="menu-social"><span>KG STUDIOS</span><i></i><span>SINGLE PLAYER</span></div>
@@ -31,7 +31,7 @@ app.innerHTML = `
     <label class="setting-row">Walking speed <output id="speed-value">3.5</output><input id="speed-setting" type="range" min="2" max="5.5" step="0.1" value="3.5"></label>
     <label class="setting-row">Graphics resolution <output id="quality-value">100%</output><input id="quality-setting" type="range" min="0.65" max="1" step="0.05" value="1"></label>
     <label class="setting-check"><input id="invert-y-setting" type="checkbox"> Invert mouse Y</label>
-    <div class="keybinds"><h3>CONTROLS</h3><div class="keybind-row">Move forward <button data-bind="forward">W</button></div><div class="keybind-row">Move backward <button data-bind="backward">S</button></div><div class="keybind-row">Move left <button data-bind="left">A</button></div><div class="keybind-row">Move right <button data-bind="right">D</button></div><div class="keybind-row">Sprint <button data-bind="sprint">SHIFT</button></div><div class="keybind-row">Interact / hide <button data-bind="interact">E</button></div><div class="keybind-row">Flashlight <button data-bind="flashlight">F</button></div><div class="keybind-row">Inventory <button data-bind="inventory">I</button></div><p id="bind-status">Select a key to change it.</p></div><button id="reset-settings" class="secondary">RESET DEFAULTS</button><button id="close-settings">BACK</button>
+    <div class="keybinds"><h3>CONTROLS</h3><div class="keybind-row">Move forward <button data-bind="forward">W</button></div><div class="keybind-row">Move backward <button data-bind="backward">S</button></div><div class="keybind-row">Move left <button data-bind="left">A</button></div><div class="keybind-row">Move right <button data-bind="right">D</button></div><div class="keybind-row">Sprint <button data-bind="sprint">SHIFT</button></div><div class="keybind-row">Interact / hide <button data-bind="interact">E</button></div><div class="keybind-row">Flashlight <button data-bind="flashlight">F</button></div><div class="keybind-row">Inventory <button data-bind="inventory">I</button></div><div class="keybind-row">Spray mark <button data-bind="spray">G</button></div><p id="bind-status">Select a key to change it.</p></div><button id="reset-settings" class="secondary">RESET DEFAULTS</button><button id="close-settings">BACK</button>
   </div></section><div id="tutorial" class="overlay"><div class="panel"><h2>FIELD TRAINING</h2><p id="tutorial-content"></p><button id="tutorial-start">BEGIN EXPEDITION</button></div></div><div id="minimap-wrap"><div id="minimap-title">LOCAL AREA</div><canvas id="minimap" width="180" height="180"></canvas><div id="minimap-coords"></div></div><canvas id="debug-map" width="280" height="280"></canvas>
   <section id="level-complete" class="overlay"><div class="panel"><h2 id="complete-title">LEVEL COMPLETE</h2><p id="complete-text"></p><button id="next-level">CONTINUE</button></div></section>
   <input id="map-file" type="file" accept=".backrooms,.json,application/json" hidden/><button id="import-map">IMPORT MAP</button><div id="import-message"></div>
@@ -93,13 +93,13 @@ function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number
   part(.09,2.2,.82,-.53,1.1,0);part(.09,2.2,.82,.53,1.1,0);
   part(1.08,.09,.82,0,.045,0);part(1.08,.09,.82,0,2.155,0);
   part(1.0,2.0,.055,0,1.1,-.37,inside);
-  const door=new THREE.Mesh(new THREE.BoxGeometry(1.02,2.04,.065),metal);door.position.set(-.58,1.1,.38);door.rotation.y=-.95;g.add(door);
-  const handle=new THREE.Mesh(new THREE.BoxGeometry(.045,.25,.06),new THREE.MeshStandardMaterial({color:0xc4bda4,metalness:.7,roughness:.35}));handle.position.set(-.14,1.1,.62);g.add(handle);
+  const door=new THREE.Group();const dp=(w:number,h:number,x:number,y:number)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,.065),metal);m.position.set(x,y,0);door.add(m);};dp(.08,2.04,-.47,0);dp(.08,2.04,.47,0);dp(.94,.09,0,.975);dp(.94,.09,0,-.975);dp(.94,.42,0,-.72);dp(.94,.34,0,.79);dp(.94,.055,0,-.18);dp(.94,.055,0,.32);door.position.set(0,1.1,.41);door.rotation.y=-.95;g.add(door);g.userData.lockerDoor=door;
+  const handle=new THREE.Mesh(new THREE.BoxGeometry(.045,.25,.06),new THREE.MeshStandardMaterial({color:0x77766c,metalness:.7,roughness:.35}));handle.position.set(-.14,1.1,.62);g.add(handle);
  }else{
   const body=new THREE.Mesh(new THREE.BoxGeometry(kind==='generator'?1.1:.55,kind==='generator'?1.35:.45,kind==='generator'?.8:.45),new THREE.MeshStandardMaterial({color:0x55534a,roughness:.85,metalness:.12}));
   body.position.y=kind==='generator'?.68:.28;g.add(body);
  }
- const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.09,.08),new THREE.MeshBasicMaterial({color}));lamp.position.set(0,kind==='locker'?1.65:kind==='generator'?1.05:.38,kind==='locker'?.43:.42);g.add(lamp);
+ if(kind!=='locker'){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.09,.08),new THREE.MeshBasicMaterial({color}));lamp.position.set(0,kind==='generator'?1.05:.38,.42);g.add(lamp);}
  if(kind==='note'){const page=new THREE.Mesh(new THREE.BoxGeometry(.32,.025,.23),new THREE.MeshBasicMaterial({color:0xe7dfbd}));page.position.y=.55;g.add(page);}
  g.position.copy(pos);if(kind==='locker')g.rotation.y=facing;world.add(g);interactables.push({kind,label,object:g,active:true});return g;
 }
@@ -112,15 +112,15 @@ function setupLevelGameplay(n:number){
  else{addInteractable('note','Final note',freePosition(2),0xd8d0ad);updateObjective('Follow the daylight. Find out whether this exit is real.');}
  if(n<=1){for(let i=0;i<MAP_LOCKER_SPAWNS.length;i++){const [x,z]=MAP_LOCKER_SPAWNS[i];addInteractable('locker','Locker '+(i+1),new THREE.Vector3(x,0,z),0x9bd6a0,MAP_LOCKER_FACING[i]);}}
  else{for(let i=0;i<7;i++)addInteractable('locker','Locker '+(i+1),freePosition(100+i),0x9bd6a0);}
- if(n<=1){const points=[...MAP_MONSTER_SPAWNS];const spawn=points[Math.floor(Math.random()*points.length)];const monster=n===0?wanderer:smiler;if(monster){monster.position.set(spawn[0],0,spawn[1]);monster.visible=true;}}
+ if(n===0){const points=[...MAP_MONSTER_SPAWNS];const spawn=points[Math.floor(Math.random()*points.length)];if(wanderer){wanderer.position.set(spawn[0],0,spawn[1]);wanderer.visible=true;}}else if(n===1){const pool=[...MAP_MONSTER_SPAWNS].sort(()=>Math.random()-.5);smilers.forEach((sprite,i)=>{const p=pool[i%pool.length];sprite.position.set(p[0],1.25,p[1]);sprite.visible=true;});}else smilers.forEach(sprite=>sprite.visible=false);
 }
 function nearInteractable(maxDistance=2.5){let best:{item:typeof interactables[number];distance:number}|null=null;for(const item of interactables){if(!item.active)continue;const d=camera.position.distanceTo(item.object.position.clone().add(new THREE.Vector3(0,1,0)));if(d<maxDistance&&(!best||d<best.distance))best={item,distance:d};}return best;}
 function updateInteractHint(){const hint=document.querySelector<HTMLElement>('#interact-hint');if(!hint)return;if(!playing||isHiding){hint.style.opacity='0';return;}const near=nearInteractable();const exitDistance=exitPortal?camera.position.distanceTo(exitPortal.position.clone().add(new THREE.Vector3(0,1,0))):99;if(near){hint.textContent='E  ·  '+(near.item.kind==='locker'?'HIDE IN ':near.item.kind==='breaker'?'ACTIVATE ':near.item.kind==='fuse'?'PICK UP ':near.item.kind==='generator'?'USE ':near.item.kind==='card'?'COLLECT ': 'READ ')+near.item.label;hint.style.opacity='1';}else if(exitDistance<3.5){hint.textContent='E  ·  USE EXIT';hint.style.opacity='1';}else hint.style.opacity='0';}
 function handleWorldInteraction(){
- if(isHiding){isHiding=false;camera.position.copy(hidingReturnPosition);camera.position.y=1.65;yaw=hidingReturnYaw;pitch=hidingReturnPitch;camera.rotation.set(pitch,yaw,0,'YXZ');for(const brain of [wandererBrain,smilerBrain])if(brain.state==='locker-check'){brain.state='chase';brain.lastKnown.copy(camera.position);brain.timer=0;}message('You climb out of the locker.');return;}
+ if(isHiding){isHiding=false;for(const item of interactables)if(item.kind==='locker'){const door=item.object.userData.lockerDoor as THREE.Group|undefined;if(door)door.rotation.y=-.95;}camera.position.copy(hidingReturnPosition);camera.position.y=1.65;yaw=hidingReturnYaw;pitch=hidingReturnPitch;camera.rotation.set(pitch,yaw,0,'YXZ');if(wandererBrain.state==='locker-check'){wandererBrain.state='chase';wandererBrain.lastKnown.copy(camera.position);wandererBrain.timer=0;}message('You climb out of the locker.');return;}
  const near=nearInteractable();
  if(near){const item=near.item;
-  if(item.kind==='locker'){hidingReturnPosition.copy(camera.position);hidingReturnYaw=yaw;hidingReturnPitch=pitch;camera.position.set(item.object.position.x,item.object.position.y+1.15,item.object.position.z+.08);yaw=Math.PI;pitch=0;camera.rotation.set(pitch,yaw,0,'YXZ');isHiding=true;for(const [monster,brain] of [[wanderer,wandererBrain],[smiler,smilerBrain]] as [THREE.Group|null,MonsterBrain][])if(monster?.visible&&Math.hypot(monster.position.x-hidingReturnPosition.x,monster.position.z-hidingReturnPosition.z)<26){brain.state='locker-check';brain.target.copy(hidingReturnPosition);brain.timer=0;brain.think=0;}message('Stay quiet. The locker door closes around you.');return;}
+  if(item.kind==='locker'){hidingReturnPosition.copy(camera.position);hidingReturnYaw=yaw;hidingReturnPitch=pitch;const front=new THREE.Vector3(0,0,.08).applyAxisAngle(new THREE.Vector3(0,1,0),item.object.rotation.y);camera.position.copy(item.object.position).add(front);camera.position.y=item.object.position.y+1.15;yaw=Math.PI+item.object.rotation.y;pitch=0;camera.rotation.set(pitch,yaw,0,'YXZ');isHiding=true;const door=item.object.userData.lockerDoor as THREE.Group|undefined;if(door)door.rotation.y=0;if(wanderer?.visible&&Math.hypot(wanderer.position.x-hidingReturnPosition.x,wanderer.position.z-hidingReturnPosition.z)<26){wandererBrain.state='locker-check';wandererBrain.target.copy(hidingReturnPosition);wandererBrain.timer=0;wandererBrain.think=0;}message('The locker closes. Watch through the narrow slits.');return;}
   if(item.kind==='breaker'){breakersOn++;collectedItems.add('Breaker switch '+breakersOn);updateInventory();item.active=false;world.remove(item.object);message('Breaker activated ('+breakersOn+'/3).');updateObjective(breakersOn>=3?'Power restored. Find the exit.':'Activate the 3 breaker boxes ('+breakersOn+'/3).');if(breakersOn>=3)revealExit();}
   else if(item.kind==='fuse'){fusesFound++;collectedItems.add(item.label);item.active=false;world.remove(item.object);message('Fuse collected ('+fusesFound+'/3).');updateInventory();updateObjective(fusesFound>=3?'All fuses found. Return to the generator.':'Find the remaining fuses ('+fusesFound+'/3).');}
   else if(item.kind==='generator'){if(fusesFound<3){message('The generator needs 3 fuses.');}else{item.active=false;world.remove(item.object);message('Generator online. The exit is powered.');updateObjective('Power restored. Find the exit.');revealExit();}}
@@ -137,7 +137,7 @@ function handleWorldInteraction(){
   endLevel();
  }else message('There is nothing to interact with nearby.');
 }
-function capturePlayer(){if(captureCooldown>0||isHiding)return;captureCooldown=3;playing=false;if(document.pointerLockElement)document.exitPointerLock();camera.position.copy(playerSpawn);camera.position.y=1.65;stamina=100;message('You were found. You return to the last safe point.');pauseUI.classList.remove('visible');setTimeout(()=>{captureCooldown=0;if(!menu.classList.contains('visible')&&!completeUI.classList.contains('visible')){playing=true;renderer.domElement.requestPointerLock();}},1200);}
+function capturePlayer(bySmiler=false){if(captureCooldown>0||(isHiding&&!bySmiler))return;if(isHiding&&bySmiler)isHiding=false;captureCooldown=3;playing=false;if(document.pointerLockElement)document.exitPointerLock();camera.position.copy(playerSpawn);camera.position.y=1.65;stamina=100;message('You were found. You return to the last safe point.');pauseUI.classList.remove('visible');setTimeout(()=>{captureCooldown=0;if(!menu.classList.contains('visible')&&!completeUI.classList.contains('visible')){playing=true;renderer.domElement.requestPointerLock();}},1200);}
 
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0xaaa17b); scene.fog=new THREE.Fog(0xaaa17b,12,55);
 const camera=new THREE.PerspectiveCamera(fieldOfView,innerWidth/innerHeight,.1,150); camera.position.set(0,1.65,8);
@@ -188,32 +188,16 @@ const roomPanelMat=new THREE.MeshBasicMaterial({color:0xfff2d1});const roomGlowM
 }
 makeRoom();
 const flashlight=new THREE.SpotLight(0xfff1cf,0,24,Math.PI/7,.45,1.3);camera.add(flashlight);camera.add(flashlight.target);flashlight.target.position.set(0,0,-1);scene.add(camera);
-function makeSmilerModel():THREE.Group{
- const g=new THREE.Group();
- // Always build a visible procedural Smiler first. The optional face image is layered
- // over it only after the texture has successfully loaded, so a missing PNG cannot
- // leave Level 1 with an invisible enemy.
- const shadow=new THREE.Mesh(new THREE.SphereGeometry(.82,24,18),new THREE.MeshStandardMaterial({color:0x08070b,roughness:1,transparent:true,opacity:.96}));
- shadow.scale.set(1.05,1.35,.48);shadow.position.y=1.45;g.add(shadow);
- const face=new THREE.Mesh(new THREE.SphereGeometry(.58,24,16),new THREE.MeshBasicMaterial({color:0x050407}));face.scale.set(1.12,1,.18);face.position.set(0,1.85,-.38);g.add(face);
- const eyeMat=new THREE.MeshBasicMaterial({color:0xf4fff0});
- for(const x of [-.34,.34]){const eye=new THREE.Mesh(new THREE.SphereGeometry(.115,16,12),eyeMat);eye.position.set(x,2.08,-.52);g.add(eye);}
- const points=[new THREE.Vector3(-.43,1.63,-.55),new THREE.Vector3(-.25,1.49,-.57),new THREE.Vector3(0,1.45,-.58),new THREE.Vector3(.25,1.49,-.57),new THREE.Vector3(.43,1.63,-.55)];
- const grin=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),24,.055,8,false),new THREE.MeshBasicMaterial({color:0xeaffdf}));g.add(grin);
- for(let i=0;i<7;i++){const tooth=new THREE.Mesh(new THREE.BoxGeometry(.075,.13,.035),new THREE.MeshBasicMaterial({color:0xf4fff0}));tooth.position.set(-.3+i*.1,1.55,-.58);g.add(tooth);}
- const haze=new THREE.PointLight(0xd9ffe1,3,5);haze.position.set(0,1.8,-.8);g.add(haze);
- const faceTexture=new THREE.TextureLoader().load(import.meta.env.BASE_URL+'models/Smiler.png',()=>{faceTexture.colorSpace=THREE.SRGBColorSpace;faceSprite.visible=true;},undefined,()=>console.warn('Smiler face texture unavailable; using procedural model.'));
- const faceSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:faceTexture,transparent:true,alphaTest:.025,depthWrite:false}));faceSprite.position.set(0,1.55,0);faceSprite.scale.set(2.55,2.28,1);faceSprite.visible=false;g.add(faceSprite);
- return g;
-}
-const loader=new GLTFLoader();let wanderer:THREE.Group|null=null;let smiler:THREE.Group|null=null;let mixer:THREE.AnimationMixer|null=null;let actions:Record<string,THREE.AnimationAction>={};let actionName='';
+const smilerTexture=new THREE.TextureLoader().load(import.meta.env.BASE_URL+'models/Smiler.png');smilerTexture.colorSpace=THREE.SRGBColorSpace;
+function makeSmilerModel():THREE.Sprite{const material=new THREE.SpriteMaterial({map:smilerTexture,transparent:true,alphaTest:.015,depthWrite:false,depthTest:true});const sprite=new THREE.Sprite(material);sprite.scale.set(2.8,2.5,1);sprite.position.y=1.25;sprite.visible=false;return sprite;}
+const loader=new GLTFLoader();let wanderer:THREE.Group|null=null;let smiler:THREE.Sprite|null=null;const smilers:THREE.Sprite[]=[];let mixer:THREE.AnimationMixer|null=null;let actions:Record<string,THREE.AnimationAction>={};let actionName='';
 loader.load(import.meta.env.BASE_URL+'models/Lonely_Wanderer.glb',g=>{wanderer=new THREE.Group();const model=g.scene;const b=new THREE.Box3().setFromObject(model),s=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());const scale=2.15/Math.max(s.y,.001);model.scale.setScalar(scale);model.position.set(-c.x*scale,-b.min.y*scale,-c.z*scale);wanderer.add(model);wanderer.position.set(18,0,18);wanderer.visible=level===0;scene.add(wanderer);mixer=new THREE.AnimationMixer(model);g.animations.forEach(a=>actions[a.name]=mixer!.clipAction(a));playAnim('Zombie_Walk');},undefined,e=>console.warn('Wanderer model could not load',e));
-smiler=makeSmilerModel();smiler.position.set(18,0,18);smiler.visible=level===1;scene.add(smiler);
+for(let i=0;i<5;i++){const sprite=makeSmilerModel();smilers.push(sprite);scene.add(sprite);}smiler=smilers[0]||null;
 function playAnim(n:string){const a=actions[n];if(!a||actionName===n)return;a.reset().fadeIn(.2).play();if(actions[actionName])actions[actionName].fadeOut(.2);actionName=n;}
 let playing=false,paused=false,inventoryOpen=false,flashOn=false,stamina=100,yaw=0,pitch=0,last=performance.now(),exitReady=false;
 const keys=new Set<string>();
-type ActionName='forward'|'backward'|'left'|'right'|'sprint'|'interact'|'flashlight'|'inventory';
-const defaultBindings:Record<ActionName,string>={forward:'KeyW',backward:'KeyS',left:'KeyA',right:'KeyD',sprint:'ShiftLeft',interact:'KeyE',flashlight:'KeyF',inventory:'KeyI'};
+type ActionName='forward'|'backward'|'left'|'right'|'sprint'|'interact'|'flashlight'|'inventory'|'spray';
+const defaultBindings:Record<ActionName,string>={forward:'KeyW',backward:'KeyS',left:'KeyA',right:'KeyD',sprint:'ShiftLeft',interact:'KeyE',flashlight:'KeyF',inventory:'KeyI',spray:'KeyG'};
 let bindings:Record<ActionName,string>={...defaultBindings};let waitingForBind:ActionName|null=null;let settingsReturn:'menu'|'pause'='menu';let tutorialPending=false;let cheatMap=false;const $=(s:string)=>document.querySelector<HTMLElement>(s)!;
 const menu=$('#menu'),pauseUI=$('#pause'),inventoryUI=$('#inventory'),completeUI=$('#level-complete'),notice=$('#notice');
 const message=(s:string)=>{notice.textContent=s;notice.classList.add('show');};
@@ -233,11 +217,14 @@ for(let x=4;x<240;x+=8){for(let z=4;z<120;z+=8){if(!isCeilingLightSpotClear(x,z,
  message('Original NullZoner map loaded — 382 map shapes.');
  return true;
 }
-function setLevel(n:number){if(exitPortal){scene.remove(exitPortal);exitPortal=null;}level=n;hemiLight.intensity=n===1?.58:1.3;ambientLight.intensity=n===1?.2:.48;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];exitReady=false;scene.background=new THREE.Color(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b);scene.fog=new THREE.Fog(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b,n===1?7:12,n===1?39:55);if(n<=1){void loadUserMap().then(()=>setupLevelGameplay(n));}else{makeRoom();camera.position.set(0,1.65,8);setupLevelGameplay(n);}if(wanderer)wanderer.visible=n===0;if(smiler)smiler.visible=n===1;message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
+const sprayMarks:THREE.Group[]=[];
+function sprayMark(){if(!playing||isHiding)return;const mark=new THREE.Group();const mat=new THREE.MeshBasicMaterial({color:0xff762c,transparent:true,opacity:.78,depthWrite:false,side:THREE.DoubleSide});for(let i=0;i<22;i++){const a=Math.random()*Math.PI*2,r=Math.random()*.34,size=.025+Math.random()*.045;const dot=new THREE.Mesh(new THREE.CircleGeometry(size,7),mat);dot.rotation.x=-Math.PI/2;dot.position.set(Math.cos(a)*r,.018+Math.random()*.002,Math.sin(a)*r);mark.add(dot);}mark.position.set(camera.position.x,0,camera.position.z);world.add(mark);sprayMarks.push(mark);if(sprayMarks.length>100){const old=sprayMarks.shift()!;world.remove(old);}message('Trail marked.');}
+function clearSprayMarks(){for(const mark of sprayMarks)world.remove(mark);sprayMarks.length=0;}
+function setLevel(n:number){clearSprayMarks();if(exitPortal){scene.remove(exitPortal);exitPortal=null;}level=n;hemiLight.intensity=n===1?.58:1.3;ambientLight.intensity=n===1?.2:.48;$('#level-name').textContent=['LEVEL 0 — LOBBY','LEVEL 1 — HABITUAL ROOMS','LEVEL 2 — SAFE ZONE','LEVEL 3 — THE EXIT'][n];exitReady=false;scene.background=new THREE.Color(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b);scene.fog=new THREE.Fog(n===1?0x34313a:n===2?0x89917c:n===3?0x29252b:0xaaa17b,n===1?7:12,n===1?39:55);if(n<=1){void loadUserMap().then(()=>setupLevelGameplay(n));}else{makeRoom();camera.position.set(0,1.65,8);setupLevelGameplay(n);}if(wanderer)wanderer.visible=n===0;smilers.forEach(sprite=>sprite.visible=n===1);message(['Find a way out.','Something is watching.','This level seems safe.','You can see daylight ahead.'][n]);}
 function begin(){keys.clear();playing=true;paused=false;menu.classList.remove('visible');pauseUI.classList.remove('visible');completeUI.classList.remove('visible');$('#tutorial').classList.remove('visible');renderer.domElement.requestPointerLock();}
 function pause(){if(!playing)return;keys.clear();paused=true;playing=false;pauseUI.classList.add('visible');if(document.pointerLockElement)document.exitPointerLock();}
 function resume(){paused=false;pauseUI.classList.remove('visible');begin();}
-function endLevel(){playing=false;saveProgress(level<3?level+1:3);document.exitPointerLock();completeUI.classList.add('visible');$('#complete-title').textContent=level===3?'TO BE CONTINUED':'LEVEL '+level+' COMPLETE';$('#complete-text').textContent=level===2?'A familiar doorway opens. Beyond it, the halls become darker.':level===3?'The exit was never an exit. Something moves behind the glass.':'You found a passage deeper into the Backrooms.';$('#next-level').textContent=level===3?'RETURN TO MAIN MENU':'ENTER NEXT LEVEL';}
+function endLevel(){clearSprayMarks();playing=false;saveProgress(level<3?level+1:3);document.exitPointerLock();completeUI.classList.add('visible');$('#complete-title').textContent=level===3?'TO BE CONTINUED':'LEVEL '+level+' COMPLETE';$('#complete-text').textContent=level===2?'A familiar doorway opens. Beyond it, the halls become darker.':level===3?'The exit was never an exit. Something moves behind the glass.':'You found a passage deeper into the Backrooms.';$('#next-level').textContent=level===3?'RETURN TO MAIN MENU':'ENTER NEXT LEVEL';}
 function syncSettingsUI(){($('#sensitivity-setting') as HTMLInputElement).value=String(mouseSensitivity);$('#sensitivity-value').textContent=mouseSensitivity.toFixed(1)+'×';($('#fov-setting') as HTMLInputElement).value=String(fieldOfView);$('#fov-value').textContent=fieldOfView+'°';($('#speed-setting') as HTMLInputElement).value=String(walkSpeed);$('#speed-value').textContent=walkSpeed.toFixed(1);($('#quality-setting') as HTMLInputElement).value=String(graphicsScale);$('#quality-value').textContent=Math.round(graphicsScale*100)+'%';($('#invert-y-setting') as HTMLInputElement).checked=invertMouseY;}
 function applySettings(){camera.fov=fieldOfView;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,1)*graphicsScale);syncSettingsUI();saveSettings();}
 function bindRange(id:string,fn:(v:number)=>void){const el=$('#'+id) as HTMLInputElement;el.addEventListener('input',()=>{fn(Number(el.value));applySettings();});}
@@ -250,21 +237,21 @@ document.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach(b=>b.onclick
 $('#reset-settings').onclick=()=>{mouseSensitivity=1;fieldOfView=75;walkSpeed=3.5;graphicsScale=1;invertMouseY=false;bindings={...defaultBindings};applySettings();refreshBindLabels();};
 inventoryList.addEventListener('click',e=>{const button=(e.target as HTMLElement).closest<HTMLButtonElement>('[data-item]');if(!button)return;selectedInventoryItem=button.dataset.item||'';updateInventory();});
 applySettings();
-const savedAtMenu=readProgress();const continueButton=$('#continue') as HTMLButtonElement;continueButton.disabled=!(savedAtMenu&&Number.isInteger(savedAtMenu.level));function showTutorial(){const label=(a:ActionName)=>bindings[a].replace('Key','').replace('ShiftLeft','SHIFT').replace('ShiftRight','SHIFT');$('#tutorial-content').textContent='MOVE  '+label('forward')+' / '+label('backward')+' / '+label('left')+' / '+label('right')+'\\nSPRINT  '+label('sprint')+'\\nINTERACT, PICK UP ITEMS & HIDE  '+label('interact')+'\\nFLASHLIGHT  '+label('flashlight')+'\\nINVENTORY & LETTERS  '+label('inventory')+'\\nLOOK AROUND  Move your mouse\\nPAUSE  ESC\\n\\nStay alert. Find the objectives, use lockers carefully, and reach the exit.';$('#tutorial').classList.add('visible');}
+const savedAtMenu=readProgress();const continueButton=$('#continue') as HTMLButtonElement;continueButton.disabled=!(savedAtMenu&&Number.isInteger(savedAtMenu.level));function showTutorial(){const label=(a:ActionName)=>bindings[a].replace('Key','').replace('ShiftLeft','SHIFT').replace('ShiftRight','SHIFT');$('#tutorial-content').textContent='MOVE  '+label('forward')+' / '+label('backward')+' / '+label('left')+' / '+label('right')+'\\nSPRINT  '+label('sprint')+'\\nINTERACT, PICK UP ITEMS & HIDE  '+label('interact')+'\\nFLASHLIGHT  '+label('flashlight')+'\\nINVENTORY & LETTERS  '+label('inventory')+'\\nSPRAY A TRAIL MARK  '+label('spray')+'\\nLOOK AROUND  Move your mouse\\nPAUSE  ESC\\n\\nStay alert. Find the objectives, use lockers carefully, and reach the exit.';$('#tutorial').classList.add('visible');}
 $('#start').onclick=()=>{try{localStorage.removeItem('the-backrooms-save');}catch{}setLevel(0);tutorialPending=true;showTutorial();};$('#continue').onclick=()=>{const saved=readProgress();if(saved&&Number.isInteger(saved.level)){setLevel(Math.max(0,Math.min(3,saved.level)));tutorialPending=true;showTutorial();}};$('#tutorial-start').onclick=()=>{tutorialPending=false;begin();};$('#resume').onclick=()=>resume();$('#restart').onclick=()=>{setLevel(level);pauseUI.classList.remove('visible');begin();};$('#to-menu').onclick=()=>{playing=false;paused=false;document.exitPointerLock();pauseUI.classList.remove('visible');menu.classList.add('visible');};$('#close-inventory').onclick=()=>{inventoryOpen=false;inventoryUI.classList.remove('visible');begin();};
 $('#next-level').onclick=()=>{completeUI.classList.remove('visible');if(level>=3){menu.classList.add('visible');return;}setLevel(level+1);begin();};
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==renderer.domElement&&playing){playing=false;paused=true;pauseUI.classList.add('visible');}});
 document.addEventListener('mousemove',e=>{if(!playing||isHiding||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022*mouseSensitivity;pitch=Math.max(-1.45,Math.min(1.45,pitch-(invertMouseY?-1:1)*e.movementY*.0022*mouseSensitivity));camera.rotation.set(pitch,yaw,0,'YXZ');});
-document.addEventListener('keydown',e=>{if(waitingForBind){e.preventDefault();if(e.code==='Escape'){waitingForBind=null;$('#bind-status').textContent='Binding cancelled.';return;}if(Object.values(bindings).includes(e.code)){($('#bind-status')).textContent='That key is already assigned.';return;}bindings[waitingForBind]=e.code;waitingForBind=null;saveSettings();refreshBindLabels();$('#bind-status').textContent='Controls saved.';return;}keys.add(e.code);if(e.code==='Escape'&&playing){pause();return;}if(e.code==='Backslash'&&!e.repeat){cheatMap=!cheatMap;$('#debug-map').style.display='none';espOverlay.style.display=cheatMap&&playing?'block':'none';message('Through-wall highlights '+(cheatMap?'enabled':'disabled')+'.');}if(e.code===bindings.flashlight&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' ['+bindings.flashlight.replace('Key','')+']';}if(e.code===bindings.inventory&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){playing=false;document.exitPointerLock();}else begin();}if(e.code===bindings.interact&&!e.repeat&&playing){handleWorldInteraction();}});
+document.addEventListener('keydown',e=>{if(waitingForBind){e.preventDefault();if(e.code==='Escape'){waitingForBind=null;$('#bind-status').textContent='Binding cancelled.';return;}if(Object.values(bindings).includes(e.code)){($('#bind-status')).textContent='That key is already assigned.';return;}bindings[waitingForBind]=e.code;waitingForBind=null;saveSettings();refreshBindLabels();$('#bind-status').textContent='Controls saved.';return;}keys.add(e.code);if(e.code==='Escape'&&playing){pause();return;}if(e.code==='Backslash'&&!e.repeat){cheatMap=!cheatMap;$('#debug-map').style.display='none';espOverlay.style.display=cheatMap&&playing?'block':'none';message('Through-wall highlights '+(cheatMap?'enabled':'disabled')+'.');}if(e.code===bindings.flashlight&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' ['+bindings.flashlight.replace('Key','')+']';}if(e.code===bindings.inventory&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){playing=false;document.exitPointerLock();}else begin();}if(e.code===bindings.interact&&!e.repeat&&playing){handleWorldInteraction();}if(e.code===bindings.spray&&!e.repeat&&playing){sprayMark();}});
 document.addEventListener('keyup',e=>keys.delete(e.code));document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause();});
 const radius=.32;function collides(p:THREE.Vector3){const minX=Math.floor((p.x-radius)/CELL_SIZE),maxX=Math.floor((p.x+radius)/CELL_SIZE),minZ=Math.floor((p.z-radius)/CELL_SIZE),maxZ=Math.floor((p.z+radius)/CELL_SIZE);for(let gx=minX;gx<=maxX;gx++)for(let gz=minZ;gz<=maxZ;gz++){const bucket=solidGrid.get(gx+','+gz);if(!bucket)continue;for(const b of bucket)if(p.x+radius>b.minX&&p.x-radius<b.maxX&&p.z+radius>b.minZ&&p.z-radius<b.maxZ)return true;}return false;}
 type MonsterState='patrol'|'investigate'|'search'|'chase'|'stalk'|'locker-check';
 type MonsterBrain={state:MonsterState;target:THREE.Vector3;lastKnown:THREE.Vector3;origin:THREE.Vector3;timer:number;think:number;};
 const wandererBrain:MonsterBrain={state:'patrol',target:new THREE.Vector3(26,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
-const smilerBrain:MonsterBrain={state:'stalk',target:new THREE.Vector3(18,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
+const smilerBrains:MonsterBrain[]=smilers.map(()=>({state:'chase',target:new THREE.Vector3(18,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0}));
 const sightRay=new THREE.Raycaster();let playerNoise=0;
 function hasSight(monster:THREE.Group,range:number,fov:number){const origin=monster.position.clone().add(new THREE.Vector3(0,1.45,0));const target=camera.position.clone();const delta=target.clone().sub(origin);const distance=delta.length();if(distance>range)return false;const forward=new THREE.Vector3(0,0,1).applyQuaternion(monster.quaternion).normalize();if(forward.dot(delta.clone().normalize())<Math.cos(fov/2))return false;sightRay.set(origin,delta.normalize());sightRay.far=Math.max(0,distance-.55);return sightRay.intersectObjects(walls,false).length===0;}
-function playerLooksAt(monster:THREE.Group){
+function playerLooksAt(monster:THREE.Object3D){
  const to=monster.position.clone().add(new THREE.Vector3(0,1.35,0)).sub(camera.position);
  const distance=to.length();if(distance>30)return false;
  const forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).normalize();
@@ -279,7 +266,7 @@ function choosePatrolTarget(monster:THREE.Group,brain:MonsterBrain){
  }
  brain.target.copy(monster.position);
 }
-function moveMonster(monster:THREE.Group,target:THREE.Vector3,speed:number,dt:number){
+function moveMonster(monster:THREE.Object3D,target:THREE.Vector3,speed:number,dt:number){
  const dx=target.x-monster.position.x,dz=target.z-monster.position.z;
  const distance=Math.hypot(dx,dz);if(distance<.08)return false;
  const desired=Math.atan2(dx,dz);
@@ -300,35 +287,18 @@ function moveMonster(monster:THREE.Group,target:THREE.Vector3,speed:number,dt:nu
  monster.rotation.y=Math.atan2(bestX,bestZ);
  return true;
 }
-function updateMonster(monster:THREE.Group,brain:MonsterBrain,kind:'wanderer'|'smiler',dt:number){
+function updateMonster(monster:THREE.Object3D,brain:MonsterBrain,kind:'wanderer'|'smiler',dt:number){
  if(brain.state==='locker-check'){
   const d=Math.hypot(monster.position.x-brain.target.x,monster.position.z-brain.target.z);
   if(d>2.15){moveMonster(monster,brain.target,kind==='smiler'?1.8:2.25,dt);}
   else{brain.timer+=dt;if(brain.timer>=3){brain.state='patrol';brain.timer=0;brain.think=0;choosePatrolTarget(monster,brain);}}
   return;
  }
- if(isHiding)return;
+ if(isHiding&&kind!=='smiler')return;
  const player=camera.position.clone();player.y=0;
  const distance=Math.hypot(monster.position.x-player.x,monster.position.z-player.z);
  const looking=playerLooksAt(monster);
- if(kind==='smiler'){
-  // Smilers stop moving when directly watched, then close the distance when unseen.
-  if(distance<30&&looking){
-   brain.state='stalk';brain.lastKnown.copy(player);brain.think=0;
-   const face=player.clone().sub(monster.position);monster.rotation.y=Math.atan2(face.x,face.z);
-   return;
-  }
-  if(distance<1.25)return;
-  if(distance<23){
-   brain.state='chase';brain.lastKnown.copy(player);
-   moveMonster(monster,player, distance<7?1.9:1.55,dt);
-  }else{
-   brain.state='patrol';brain.think-=dt;
-   if(brain.think<=0||monster.position.distanceTo(brain.target)<1){choosePatrolTarget(monster,brain);brain.think=2.5+Math.random()*2.5;}
-   moveMonster(monster,brain.target,.9,dt);
-  }
-  return;
- }
+ if(kind==='smiler'){brain.state='chase';brain.lastKnown.copy(player);if(distance>1.05)moveMonster(monster,player,distance<7?2.35:1.9,dt);return;}
  const seen=hasSight(monster,20,Math.PI*.82);
  const heard=playerNoise>0&&distance<(playerNoise>1?25:14);
  if(seen){brain.state='chase';brain.lastKnown.copy(player);brain.timer=0;}
@@ -370,12 +340,12 @@ function updateEspHighlights(){
  };
  for(const item of interactables){if(!item.active)continue;const labels:Record<string,[string,string]>={fuse:['FUSE','#48cfff'],breaker:['BREAKER','#48cfff'],card:['ACCESS CARD','#48cfff'],note:['NOTE','#d8d0ad'],generator:['GENERATOR','#ff78cc'],locker:['LOCKER','#b9c3c5']};const data=labels[item.kind];if(data)add('item-'+item.object.uuid,data[0]+' · '+Math.round(camera.position.distanceTo(item.object.position))+'m',data[1],item.object.position.clone().add(new THREE.Vector3(0,item.kind==='locker'?2.35:1.25,0)));}
  if(level<=1)MAP_NOCLIP_SPAWNS.forEach(([x,z],i)=>add('noclip-'+i,'NOCLIP '+String(i+1).padStart(2,'0')+' · '+Math.round(camera.position.distanceTo(new THREE.Vector3(x,0,z)))+'m','#ff922e',new THREE.Vector3(x,1.8,z),'noclip'));
- for(const [monster,label] of [[wanderer,'LONELY WANDERER'],[smiler,'SMILER']] as [THREE.Group|null,string][]){if(monster?.visible)add('monster-'+monster.uuid,label+' · '+Math.round(camera.position.distanceTo(monster.position))+'m','#ff4545',monster.position.clone().add(new THREE.Vector3(0,2.4,0)),'monster');}
+ if(wanderer?.visible)add('monster-'+wanderer.uuid,'LONELY WANDERER · '+Math.round(camera.position.distanceTo(wanderer.position))+'m','#ff4545',wanderer.position.clone().add(new THREE.Vector3(0,2.4,0)),'monster');smilers.forEach((sprite,i)=>{if(sprite.visible)add('smiler-'+i,'SMILER '+(i+1)+' · '+Math.round(camera.position.distanceTo(sprite.position))+'m','#ff4545',sprite.position.clone().add(new THREE.Vector3(0,1.3,0)),'monster');});
  if(exitPortal)add('exit-'+exitPortal.uuid,'EXIT · '+Math.round(camera.position.distanceTo(exitPortal.position))+'m','#32eeee',exitPortal.position.clone().add(new THREE.Vector3(0,2.9,0)),'exit');
  for(const [key,el] of espMarkers)if(!seen.has(key)){el.remove();espMarkers.delete(key);}
 }
 function animate(now:number){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;mixer?.update(dt);
-if(playing){if(smiler?.visible){updateMonster(smiler,smilerBrain,'smiler',dt);if(Math.hypot(smiler.position.x-camera.position.x,smiler.position.z-camera.position.z)<1.25)capturePlayer();}if(wanderer?.visible){updateMonster(wanderer,wandererBrain,'wanderer',dt);if(Math.hypot(wanderer.position.x-camera.position.x,wanderer.position.z-camera.position.z)<1.25)capturePlayer();}updateInteractHint();}
+if(playing){for(let i=0;i<smilers.length;i++){const sprite=smilers[i];if(!sprite.visible)continue;const to=sprite.position.clone().sub(camera.position),dist=to.length(),forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).normalize();if(flashOn&&dist<24&&forward.dot(to.normalize())>Math.cos(.22)){sightRay.set(camera.position,forward);sightRay.far=dist-.15;if(sightRay.intersectObjects(walls,false).length===0){sprite.visible=false;message('The flashlight scatters a Smiler.');const pool=[...MAP_MONSTER_SPAWNS].sort(()=>Math.random()-.5);const p=pool.find(v=>Math.hypot(v[0]-camera.position.x,v[1]-camera.position.z)>28)||pool[0];const brain=smilerBrains[i];setTimeout(()=>{if(level===1){sprite.position.set(p[0],1.25,p[1]);brain.state='chase';sprite.visible=true;}},650);continue;}}updateMonster(sprite,smilerBrains[i],'smiler',dt);if(Math.hypot(sprite.position.x-camera.position.x,sprite.position.z-camera.position.z)<1.05)capturePlayer(true);}if(wanderer?.visible){updateMonster(wanderer,wandererBrain,'wanderer',dt);if(Math.hypot(wanderer.position.x-camera.position.x,wanderer.position.z-camera.position.z)<1.25)capturePlayer();}updateInteractHint();}
 
 if(playing){const f=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),r=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),d=new THREE.Vector3();if(keys.has(bindings.forward))d.add(f);if(keys.has(bindings.backward))d.sub(f);if(keys.has(bindings.right))d.add(r);if(keys.has(bindings.left))d.sub(r);const moving=d.lengthSq()>0;const sprint=keys.has(bindings.sprint)&&stamina>0&&moving;playerNoise=sprint?1.5:moving?.75:0;if(moving&&!isHiding)d.normalize();if(isHiding)d.set(0,0,0);stamina=Math.max(0,Math.min(100,stamina+(sprint?-34:22)*dt));const move=d.multiplyScalar((sprint?walkSpeed*1.77:walkSpeed)*dt),x=camera.position.clone(),z=camera.position.clone();x.x+=move.x;z.z+=move.z;if(!collides(x))camera.position.x=x.x;if(!collides(z))camera.position.z=z.z;camera.position.y=1.65;$('#stamina b').style.width=stamina+'%';}
 if(playing){$('#minimap-wrap').style.display='block';drawMaps();updateEspHighlights();}else{espOverlay.style.display='none';if(menu.classList.contains('visible')||pauseUI.classList.contains('visible')||$('#settings').classList.contains('visible'))$('#minimap-wrap').style.display='none';}renderer.render(scene,camera);}requestAnimationFrame(animate);
