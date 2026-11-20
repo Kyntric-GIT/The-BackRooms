@@ -64,3 +64,16 @@
 #sprint-hud #stamina i{display:block;width:90px;height:5px;background:#ffffff55;border-radius:8px;overflow:hidden}
 #sprint-hud #stamina b{display:block;width:100%;height:100%;background:#e7d79d;transition:width .1s}
 @media(max-width:600px){#sprint-hud{bottom:76px;gap:8px;padding:6px 8px}#sprint-hud #stamina i{width:62px}}
+
+/* Editable inventory hotbar and draggable item slots */
+.inventory-hotbar{grid-template-columns:repeat(5,minmax(48px,1fr));}
+.inventory-slot[draggable="true"]{cursor:grab;touch-action:pan-y}
+.inventory-slot[draggable="true"]:active{cursor:grabbing}
+.inventory-slot.drop-target{outline:2px solid #d7c58b;background:#403923;transform:scale(1.035)}
+.hotbar-edit-slot{min-height:66px}
+.hotbar-edit-slot>small:first-child{position:absolute;top:5px;left:7px;color:#c8b77d}
+#hotbar{display:flex;gap:5px;align-items:center;justify-content:center}
+#hotbar .slot{min-width:70px;min-height:43px;padding:5px 9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid #aaa6;background:rgba(8,8,7,.82);color:#e5dfca;font:10px Inter,Arial,sans-serif}
+#hotbar .slot.selected{border:2px solid #e5d49c;background:rgba(60,51,30,.88);box-shadow:0 0 12px #d5c58b55}
+#hotbar .slot small{font-size:8px;color:#c7b985}
+@media(max-width:600px){.inventory-hotbar{grid-template-columns:repeat(5,minmax(38px,1fr));gap:4px}#hotbar .slot{min-width:48px;padding:4px;font-size:8px}}
