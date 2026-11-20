@@ -25,7 +25,15 @@ app.innerHTML = `
     <div class="menu-version">SINGLE PLAYER&nbsp;&nbsp; · &nbsp;&nbsp;THE COMPLEX</div>
   </section>
   <section id="pause" class="overlay"><div class="panel"><h2>PAUSED</h2><button id="resume">RESUME</button><button id="restart" class="secondary">RESTART LEVEL</button><button id="pause-settings" class="secondary">SETTINGS</button><button id="to-menu" class="secondary">MAIN MENU</button></div></section>
-  <section id="inventory" class="overlay"><div class="panel"><h2>INVENTORY</h2><p>Collected items and discovered letters.</p><div id="items"><span>Flashlight</span><span>Empty slot</span><span>Empty slot</span></div><div id="letter-reader"><strong>LETTER / DOCUMENT</strong><p>Select a letter in your inventory to read it.</p></div><button id="close-inventory">CLOSE [I]</button></div></section>
+  <section id="inventory" class="overlay inventory-screen">
+ <div class="inventory-shell">
+  <header class="inventory-header"><h2>INVENTORY</h2><div class="inventory-tabs"><button class="inventory-tab active" data-filter="all" aria-label="All items">◉</button><button class="inventory-tab" data-filter="key" aria-label="Key items">▣</button><button class="inventory-tab" data-filter="documents" aria-label="Documents">▤</button></div><button id="close-inventory" class="inventory-back">ESC  BACK</button></header>
+  <div class="inventory-content"><div class="inventory-left"><div class="inventory-section"><h3>KEY ITEMS</h3><div id="inventory-grid" class="inventory-grid"></div></div><div class="inventory-section"><h3>EQUIPMENT</h3><div id="inventory-equipment" class="inventory-grid equipment-grid"></div></div></div>
+   <aside class="inventory-preview"><div id="inventory-preview-icon" class="preview-icon">🔦</div><h3 id="inventory-preview-title">FLASHLIGHT</h3><p id="inventory-preview-description">A reliable source of light. Keep it ready when exploring dark areas.</p><div id="letter-reader" class="inventory-document"></div></aside>
+  </div><footer class="inventory-footer"><span>ENTER  EXAMINE</span><span>ESC  BACK</span></footer>
+ </div>
+</section>
+<div id="pickup-toast" aria-live="polite"><span id="pickup-icon">✦</span><div><strong id="pickup-title">ITEM ACQUIRED</strong><small id="pickup-subtitle">Added to inventory</small></div></div>
   <section id="settings" class="overlay"><div class="panel settings-panel"><h2>SETTINGS</h2><p>Adjust your expedition.</p>
     <label class="setting-row">Mouse sensitivity <output id="sensitivity-value">1.0×</output><input id="sensitivity-setting" type="range" min="0.4" max="2.5" step="0.1" value="1"></label>
     <label class="setting-row">Field of view <output id="fov-value">75°</output><input id="fov-setting" type="range" min="60" max="100" step="1" value="75"></label>
@@ -50,6 +58,40 @@ gameplayStyle.textContent=`
 #danger-hud.critical{border-color:#ef3e35;background:rgba(45,7,7,.9)}#danger-hud.critical .danger-dot{background:#ff3939;box-shadow:0 0 15px #ff3939}#danger-hud.critical .danger-track i{background:#ff3939}
 #danger-alert{position:absolute;z-index:5;top:150px;left:50%;transform:translateX(-50%);padding:7px 14px;background:rgba(65,12,8,.78);border:1px solid #e35b42;color:#ffd9ce;font:bold 11px Arial,sans-serif;letter-spacing:2px;opacity:0;transition:opacity .18s;pointer-events:none}#danger-alert.show{opacity:1}
 @media(max-width:700px){#danger-hud{top:74px;right:8px;width:180px;padding:8px}#danger-alert{top:132px}}
+/* Full-screen field inventory inspired by the supplied reference. */
+.inventory-screen{z-index:40;background:radial-gradient(ellipse at 35% 45%,rgba(38,35,32,.96),rgba(5,5,5,.97) 72%);backdrop-filter:blur(7px);align-items:stretch;justify-content:stretch;padding:3.5vh 4vw}
+.inventory-shell{width:100%;height:100%;max-width:1240px;margin:auto;display:flex;flex-direction:column;color:#eee;font-family:Inter,Arial,sans-serif}
+.inventory-header{height:58px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #9b292944;position:relative}
+.inventory-header h2{font:800 26px 'Barlow Condensed',Arial,sans-serif;letter-spacing:1px;color:#c74343;margin:0}
+.inventory-tabs{display:flex;gap:8px;position:absolute;left:50%;transform:translateX(-50%)}
+.inventory-tab{width:42px;height:42px;margin:0;padding:0;border:1px solid #777;background:#171717;color:#aaa;font-size:20px}
+.inventory-tab.active{border:2px solid #eee;color:white;background:#292929}
+.inventory-back{margin:0;background:#222;color:#ddd;border:1px solid #555;padding:10px 13px;font-size:9px}
+.inventory-content{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.45fr) minmax(230px,.8fr);gap:4vw;padding:22px 2vw 10px}
+.inventory-left{overflow:auto;padding-right:8px}
+.inventory-section{margin-bottom:24px}
+.inventory-section h3{font:700 10px Inter,Arial,sans-serif;color:#bd4949;letter-spacing:1.5px;border-bottom:1px solid #963a3a55;padding:0 0 8px;margin:0 0 12px}
+.inventory-grid{display:grid;grid-template-columns:repeat(5,minmax(58px,1fr));gap:8px}
+.inventory-slot{position:relative;min-width:0;aspect-ratio:1/1;border:1px solid #555;background:linear-gradient(145deg,#151515,#090909);color:#ddd;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;margin:0;padding:5px;overflow:hidden}
+.inventory-slot.filled{border-color:#777;background:linear-gradient(145deg,#252525,#111);cursor:pointer}
+.inventory-slot.selected{outline:2px solid #e6e6e6;outline-offset:1px}
+.inventory-slot .slot-icon{font-size:clamp(24px,4vw,43px);filter:drop-shadow(0 3px 5px #000)}
+.inventory-slot small{font-size:8px;line-height:1.2;text-align:center;color:#ccc;max-width:100%;overflow-wrap:anywhere}
+.inventory-slot .empty-slot-mark{width:65%;height:65%;border:1px solid #ffffff08}
+.inventory-preview{border-left:1px solid #ffffff15;padding:18px 0 0 3vw;display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+.preview-icon{height:40%;min-height:150px;width:100%;display:grid;place-items:center;font-size:clamp(80px,14vw,150px);filter:drop-shadow(0 12px 22px #000)}
+#inventory-preview-title{width:100%;font:800 15px 'Barlow Condensed',Arial,sans-serif;color:#c84b4b;border-bottom:1px solid #963a3a55;padding:0 0 9px;margin:8px 0 12px;letter-spacing:1px}
+#inventory-preview-description{font-size:11px;line-height:1.65;color:#d2d0ca;max-width:360px;margin:0 0 12px}
+.inventory-document{font-size:11px;line-height:1.75;color:#c9c5ba;white-space:pre-wrap;max-height:32%;overflow:auto}
+.inventory-footer{height:32px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #ffffff16;color:#aaa;font-size:9px;letter-spacing:1px}
+#pickup-toast{position:absolute;z-index:35;left:0;top:50%;transform:translate(-110%,-50%);display:flex;align-items:center;gap:13px;min-width:230px;max-width:min(330px,80vw);padding:13px 20px 13px 15px;background:linear-gradient(90deg,rgba(8,8,8,.96),rgba(25,22,20,.88));border-left:3px solid #c6b77d;box-shadow:0 8px 28px #0009;color:#eee;pointer-events:none;opacity:0}
+#pickup-toast.show{animation:pickupSlide 3.1s cubic-bezier(.2,.75,.25,1) both}
+#pickup-icon{font-size:30px;color:#e6d9ae;min-width:36px;text-align:center;animation:pickupIcon .6s ease-out}
+#pickup-title{display:block;font:800 12px 'Barlow Condensed',Arial,sans-serif;letter-spacing:1.4px;color:#f0e8cf}
+#pickup-subtitle{display:block;margin-top:4px;font-size:9px;letter-spacing:1px;color:#aaa}
+@keyframes pickupSlide{0%{opacity:0;transform:translate(-110%,-50%)}12%,78%{opacity:1;transform:translate(0,-50%)}100%{opacity:0;transform:translate(-20%,-50%)}}
+@keyframes pickupIcon{0%{transform:scale(.45) rotate(-20deg);opacity:0}65%{transform:scale(1.18);opacity:1}100%{transform:scale(1)}}
+@media(max-width:700px){.inventory-screen{padding:2vh 3vw}.inventory-content{grid-template-columns:1fr;gap:10px;padding:12px 0}.inventory-preview{border-left:0;border-top:1px solid #ffffff15;padding:10px 0;display:grid;grid-template-columns:70px 1fr;column-gap:12px}.preview-icon{grid-row:span 2;min-height:70px;height:70px;font-size:54px}#inventory-preview-title{margin:0 0 5px}.inventory-preview p{margin:0;font-size:10px}.inventory-document{grid-column:1/-1}.inventory-grid{grid-template-columns:repeat(5,minmax(48px,1fr))}.inventory-header h2{font-size:20px}.inventory-tab{width:34px;height:34px}}
 #objective-panel{position:absolute;z-index:3;top:92px;left:24px;max-width:280px;padding:12px 15px;background:rgba(18,16,11,.72);border:1px solid rgba(226,211,157,.35);color:#eee7cf;font:11px Inter,Arial,sans-serif;letter-spacing:.5px;pointer-events:none;backdrop-filter:blur(4px)}
 #objective-panel strong{display:block;color:#e5d49c;font-size:9px;letter-spacing:2px;margin-bottom:7px}
 #objective-text{line-height:1.6}
@@ -68,7 +110,7 @@ const espOverlay=document.createElement('div');espOverlay.id='esp-overlay';espOv
 const espMarkers=new Map<string,HTMLDivElement>();
 const objectivePanel=document.createElement('div');objectivePanel.id='objective-panel';objectivePanel.innerHTML='<strong>CURRENT OBJECTIVE</strong><div id="objective-text">Explore the area.</div>';game.appendChild(objectivePanel);
 const interactHint=document.createElement('div');interactHint.id='interact-hint';game.appendChild(interactHint);
-const inventoryList=document.createElement('div');inventoryList.id='inventory-list';document.querySelector('#items')?.replaceWith(inventoryList);
+const inventoryList=document.querySelector<HTMLDivElement>('#inventory-grid')!;const equipmentList=document.querySelector<HTMLDivElement>('#inventory-equipment')!;let inventoryFilter='all';
 const interactables:{kind:string;label:string;object:THREE.Group;active:boolean}[]=[];
 const collectedItems=new Set<string>();
 const noteContents:Record<string,string>={};
@@ -81,7 +123,35 @@ let breakersOn=0,fusesFound=0,hasAccessCard=false,isHiding=false,playerSpawn=new
 const hidingReturnPosition=new THREE.Vector3();let hidingReturnYaw=0,hidingReturnPitch=0;
 let objectiveText='Find a way out.';
 function updateObjective(t:string){objectiveText=t;const el=document.querySelector<HTMLElement>('#objective-text');if(el)el.textContent=t;}
-function updateInventory(){inventoryList.innerHTML='';const items=[...collectedItems];if(hasAccessCard&&!items.includes('Access card'))items.push('Access card');if(!items.length){const empty=document.createElement('div');empty.className='inventory-item';empty.textContent='No items collected yet';inventoryList.appendChild(empty);}for(const item of items){const el=document.createElement('button');el.className='inventory-item'+(selectedInventoryItem===item?' selected':'');el.textContent=item;el.dataset.item=item;inventoryList.appendChild(el);}const reader=document.querySelector<HTMLElement>('#letter-reader');if(reader){const content=noteContents[selectedInventoryItem];reader.innerHTML=content?'<strong>'+selectedInventoryItem+'</strong><p></p>':'<strong>LETTER / DOCUMENT</strong><p>Select a letter in your inventory to read it.</p>';if(content)reader.querySelector('p')!.textContent=content;}}
+const itemDescription=(item:string)=>item.startsWith('Breaker switch')?'A heavy electrical switch recovered from a breaker cabinet. It has been activated and recorded as an objective.':item.toLowerCase().includes('fuse')?'A replacement fuse for the Level 1 generator. Three are needed to restore power.':item==='Access card'?'A worn access card. It may unlock a route deeper into the complex.':item.startsWith('Explorer Note')||item.startsWith('Letter')?'A handwritten document recovered from the Backrooms. Select EXAMINE to read it.':'A useful item collected during the expedition.';
+const itemIcon=(item:string)=>item.startsWith('Breaker switch')?'⚡':item.toLowerCase().includes('fuse')?'▥':item==='Access card'?'▰':item.startsWith('Explorer Note')||item.startsWith('Letter')?'✉':'◆';
+function updateInventory(){
+ const all=[...collectedItems];if(hasAccessCard&&!all.includes('Access card'))all.push('Access card');
+ const keys=all.filter(v=>!v.startsWith('Explorer Note')&&!v.startsWith('Letter'));
+ const docs=all.filter(v=>v.startsWith('Explorer Note')||v.startsWith('Letter'));
+ const visible=inventoryFilter==='key'?keys:inventoryFilter==='documents'?docs:all;
+ inventoryList.innerHTML='';
+ const keySlots=inventoryFilter==='documents'?[]:keys;
+ const docSlots=inventoryFilter==='key'?[]:docs;
+ const slots=inventoryFilter==='documents'?docSlots:keySlots;
+ for(let i=0;i<Math.max(5,slots.length);i++){
+  const item=slots[i];const el=document.createElement('button');el.className='inventory-slot'+(item===selectedInventoryItem?' selected':'')+(item?' filled':'');el.dataset.item=item||'';
+  if(item){const icon=document.createElement('span');icon.className='slot-icon';icon.textContent=itemIcon(item);const label=document.createElement('small');label.textContent=item;el.append(icon,label);el.setAttribute('aria-label',item);}
+  else{el.innerHTML='<span class="empty-slot-mark"></span>';el.disabled=true;}
+  inventoryList.appendChild(el);
+ }
+ equipmentList.innerHTML='';
+ const equipment=['Flashlight'];for(let i=0;i<Math.max(4,equipment.length);i++){const item=equipment[i];const el=document.createElement('div');el.className='inventory-slot equipment-slot'+(item?' filled':'');if(item){el.innerHTML='<span class="slot-icon">🔦</span><small>Flashlight</small>';}else el.innerHTML='<span class="empty-slot-mark"></span>';equipmentList.appendChild(el);}
+ const selected=all.includes(selectedInventoryItem)?selectedInventoryItem:(inventoryFilter==='documents'?docs[0]:keys[0])||'Flashlight';
+ const title=$('#inventory-preview-title'),icon=$('#inventory-preview-icon'),desc=$('#inventory-preview-description'),reader=$('#letter-reader');
+ title.textContent=selected.toUpperCase();icon.textContent=itemIcon(selected);desc.textContent=itemDescription(selected);
+ const content=noteContents[selected];reader.textContent=content||'Select an item to examine it. Documents can be read here.';
+ document.querySelectorAll<HTMLButtonElement>('.inventory-tab').forEach(b=>b.classList.toggle('active',b.dataset.filter===inventoryFilter));
+}
+function showPickupToast(item:string,subtitle='ADDED TO INVENTORY'){
+ const toast=$('#pickup-toast');$('#pickup-icon').textContent=itemIcon(item);$('#pickup-title').textContent=item.toUpperCase();$('#pickup-subtitle').textContent=subtitle;
+ toast.classList.remove('show');void toast.offsetWidth;toast.classList.add('show');
+}
 function saveProgress(nextLevel=level){try{localStorage.setItem('the-backrooms-save',JSON.stringify({level:nextLevel,completed:Math.max(0,nextLevel-1),items:[...collectedItems],hasAccessCard}));}catch(e){console.warn('Save unavailable',e);}}
 function readProgress(){try{const raw=localStorage.getItem('the-backrooms-save');return raw?JSON.parse(raw):null;}catch{return null;}}
 function clearInteractables(){for(const item of interactables)world.remove(item.object);interactables.length=0;isHiding=false;}
@@ -196,11 +266,11 @@ function handleWorldInteraction(){
  const near=nearInteractable();
  if(near){const item=near.item;
   if(item.kind==='locker'){hidingReturnPosition.copy(camera.position);hidingReturnYaw=yaw;hidingReturnPitch=pitch;const front=new THREE.Vector3(0,0,.08).applyAxisAngle(new THREE.Vector3(0,1,0),item.object.rotation.y);camera.position.copy(item.object.position).add(front);camera.position.y=item.object.position.y+1.15;yaw=Math.PI+item.object.rotation.y;pitch=0;camera.rotation.set(pitch,yaw,0,'YXZ');isHiding=true;const door=item.object.userData.lockerDoor as THREE.Group|undefined;if(door)door.rotation.y=0;if(wanderer?.visible&&Math.hypot(wanderer.position.x-hidingReturnPosition.x,wanderer.position.z-hidingReturnPosition.z)<26){wandererBrain.state='locker-check';wandererBrain.target.copy(hidingReturnPosition);wandererBrain.timer=0;wandererBrain.think=0;}message('The locker closes. Watch through the narrow slits.');return;}
-  if(item.kind==='breaker'){breakersOn++;collectedItems.add('Breaker switch '+breakersOn);updateInventory();item.active=false;world.remove(item.object);message('Breaker activated ('+breakersOn+'/3).');updateObjective(breakersOn>=3?'Power restored. Find the exit.':'Activate the 3 breaker boxes ('+breakersOn+'/3).');if(breakersOn>=3)revealExit();}
-  else if(item.kind==='fuse'){fusesFound++;collectedItems.add(item.label);item.active=false;world.remove(item.object);message('Fuse collected ('+fusesFound+'/3).');updateInventory();updateObjective(fusesFound>=3?'All fuses found. Return to the generator.':'Find the remaining fuses ('+fusesFound+'/3).');}
+  if(item.kind==='breaker'){breakersOn++;const breakerItem='Breaker switch '+breakersOn;collectedItems.add(breakerItem);selectedInventoryItem=breakerItem;updateInventory();showPickupToast('BREAKER '+breakersOn,'BREAKER ACTIVATED · '+breakersOn+'/3');item.active=false;world.remove(item.object);message('Breaker activated ('+breakersOn+'/3).');updateObjective(breakersOn>=3?'Power restored. Find the exit.':'Activate the 3 breaker boxes ('+breakersOn+'/3).');if(breakersOn>=3)revealExit();}
+  else if(item.kind==='fuse'){fusesFound++;collectedItems.add(item.label);selectedInventoryItem=item.label;item.active=false;world.remove(item.object);updateInventory();showPickupToast(item.label,'FUSE COLLECTED · '+fusesFound+'/3');message('Fuse collected ('+fusesFound+'/3).');updateObjective(fusesFound>=3?'All fuses found. Return to the generator.':'Find the remaining fuses ('+fusesFound+'/3).');}
   else if(item.kind==='generator'){if(fusesFound<3){message('The generator needs 3 fuses.');}else{item.active=false;world.remove(item.object);message('Generator online. The exit is powered.');updateObjective('Power restored. Find the exit.');revealExit();}}
-  else if(item.kind==='card'){hasAccessCard=true;collectedItems.add('Access card');item.active=false;world.remove(item.object);updateInventory();message('Access card collected.');updateObjective('You have the access card. Find the exit.');revealExit();}
-  else if(item.kind==='note'){const noteName=level===2?'Letter — Safe Zone':level===3?'Letter — Final Message':level===0?'Explorer Note — Level 0':'Explorer Note — Level 1';const noteText=level===2?'To whoever finds this:\n\nThis place is quiet, but do not mistake quiet for safe. The doors sometimes lead somewhere different when you return. Keep your access card close. I am leaving it here because I cannot stay.':'If you are reading this, you made it farther than I did. The light ahead looks like daylight, but the walls still hum. I do not think we ever found the outside. Do not trust the exit.';noteContents[noteName]=noteText;collectedItems.add(noteName);selectedInventoryItem=noteName;item.active=false;world.remove(item.object);updateInventory();message('Letter collected. Open inventory [I] to read it.');if(level===3)revealExit();}
+  else if(item.kind==='card'){hasAccessCard=true;collectedItems.add('Access card');selectedInventoryItem='Access card';item.active=false;world.remove(item.object);updateInventory();showPickupToast('ACCESS CARD');message('Access card collected.');updateObjective('You have the access card. Find the exit.');revealExit();}
+  else if(item.kind==='note'){const noteName=level===2?'Letter — Safe Zone':level===3?'Letter — Final Message':level===0?'Explorer Note — Level 0':'Explorer Note — Level 1';const noteText=level===2?'To whoever finds this:\n\nThis place is quiet, but do not mistake quiet for safe. The doors sometimes lead somewhere different when you return. Keep your access card close. I am leaving it here because I cannot stay.':'If you are reading this, you made it farther than I did. The light ahead looks like daylight, but the walls still hum. I do not think we ever found the outside. Do not trust the exit.';noteContents[noteName]=noteText;collectedItems.add(noteName);selectedInventoryItem=noteName;item.active=false;world.remove(item.object);updateInventory();showPickupToast(noteName,'DOCUMENT ADDED TO INVENTORY');message('Letter collected. Open inventory [I] to read it.');if(level===3)revealExit();}
   saveProgress();return;
  }
  const exitDistance=exitPortal?camera.position.distanceTo(exitPortal.position):99;
@@ -431,7 +501,9 @@ $('#open-settings').onclick=()=>openSettings('menu');$('#pause-settings').onclic
 function refreshBindLabels(){document.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach(b=>{const a=b.dataset.bind as ActionName;b.textContent=bindings[a].replace('Key','').replace('ShiftLeft','SHIFT').replace('Arrow','');});}
 document.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach(b=>b.onclick=()=>{waitingForBind=b.dataset.bind as ActionName;$('#bind-status').textContent='Press a key for '+waitingForBind+' (Esc cancels).';});refreshBindLabels();
 $('#reset-settings').onclick=()=>{mouseSensitivity=1;fieldOfView=75;walkSpeed=3.5;graphicsScale=1;invertMouseY=false;bindings={...defaultBindings};applySettings();refreshBindLabels();};
-inventoryList.addEventListener('click',e=>{const button=(e.target as HTMLElement).closest<HTMLButtonElement>('[data-item]');if(!button)return;selectedInventoryItem=button.dataset.item||'';updateInventory();});
+inventoryList.addEventListener('click',e=>{const button=(e.target as HTMLElement).closest<HTMLButtonElement>('[data-item]');if(!button?.dataset.item)return;selectedInventoryItem=button.dataset.item;updateInventory();});
+document.querySelectorAll<HTMLButtonElement>('.inventory-tab').forEach(button=>button.addEventListener('click',()=>{inventoryFilter=button.dataset.filter||'all';updateInventory();}));
+equipmentList.addEventListener('click',()=>{selectedInventoryItem='Flashlight';updateInventory();});
 applySettings();
 const savedAtMenu=readProgress();const continueButton=$('#continue') as HTMLButtonElement;continueButton.disabled=!(savedAtMenu&&Number.isInteger(savedAtMenu.level));function showTutorial(){const label=(a:ActionName)=>bindings[a].replace('Key','').replace('ShiftLeft','SHIFT').replace('ShiftRight','SHIFT');$('#tutorial-content').textContent='MOVE  '+label('forward')+' / '+label('backward')+' / '+label('left')+' / '+label('right')+'\\nSPRINT  '+label('sprint')+'\\nINTERACT, PICK UP ITEMS & HIDE  '+label('interact')+'\\nFLASHLIGHT  '+label('flashlight')+'\\nINVENTORY & LETTERS  '+label('inventory')+'\\nSPRAY A TRAIL MARK  '+label('spray')+'\\nLOOK AROUND  Move your mouse\\nPAUSE  ESC\\n\\nStay alert. Find the objectives, use lockers carefully, and reach the exit.';$('#tutorial').classList.add('visible');}
 $('#start').onclick=()=>{try{localStorage.removeItem('the-backrooms-save');}catch{}setLevel(0);tutorialPending=true;showTutorial();};$('#continue').onclick=()=>{const saved=readProgress();if(saved&&Number.isInteger(saved.level)){setLevel(Math.max(0,Math.min(3,saved.level)));tutorialPending=true;showTutorial();}};$('#tutorial-start').onclick=()=>{tutorialPending=false;begin();};$('#resume').onclick=()=>resume();$('#restart').onclick=()=>{setLevel(level);pauseUI.classList.remove('visible');begin();};$('#to-menu').onclick=()=>{stopIntercomMusic();playing=false;paused=false;document.exitPointerLock();pauseUI.classList.remove('visible');menu.classList.add('visible');};$('#close-inventory').onclick=()=>{inventoryOpen=false;inventoryUI.classList.remove('visible');begin();};
