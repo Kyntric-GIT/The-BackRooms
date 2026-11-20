@@ -11,7 +11,7 @@ app.innerHTML = `
   <div id="danger-hud" aria-live="polite"><div class="danger-top"><span class="danger-dot"></span><strong id="danger-title">THREAT MONITOR</strong><span id="danger-state">NO THREAT</span></div><div class="danger-track"><i id="danger-fill"></i></div><div class="danger-bottom"><span id="danger-detail">No nearby movement detected</span><span id="danger-distance">—</span></div></div><div id="danger-alert" role="status">THREAT NEARBY</div>
   <div id="crosshair"></div><div id="vignette"></div>
   <div id="notice">Find a way out.</div>
-  <div id="hotbar"><div class="slot selected"><small>1</small>Flashlight</div><div class="slot"><small>2</small>Key</div><div class="slot"><small>3</small>Note</div><div class="slot"><small>4</small>Empty</div><div class="slot"><small>5</small>Spray [G]</div></div>
+  <div id="hotbar"></div>
   <section id="menu" class="visible">
     <div class="menu-brand"><h1>THE<br><span>BACKROOMS</span></h1><p>YOU HAVE NO CLIPPED OUT OF REALITY</p></div>
     <div class="menu-social"><span>KG STUDIOS</span><i></i><span>SINGLE PLAYER</span></div>
@@ -28,7 +28,7 @@ app.innerHTML = `
   <section id="inventory" class="overlay inventory-screen">
  <div class="inventory-shell">
   <header class="inventory-header"><h2>INVENTORY</h2><div class="inventory-tabs"><button class="inventory-tab active" data-filter="all" aria-label="All items">◉</button><button class="inventory-tab" data-filter="key" aria-label="Key items">▣</button><button class="inventory-tab" data-filter="documents" aria-label="Documents">▤</button></div><button id="close-inventory" class="inventory-back">ESC  BACK</button></header>
-  <div class="inventory-content"><div class="inventory-left"><div class="inventory-section"><h3>KEY ITEMS</h3><div id="inventory-grid" class="inventory-grid"></div></div><div class="inventory-section"><h3>EQUIPMENT</h3><div id="inventory-equipment" class="inventory-grid equipment-grid"></div></div></div>
+  <div class="inventory-content"><div class="inventory-left"><div class="inventory-section"><h3>KEY ITEMS</h3><div id="inventory-grid" class="inventory-grid"></div></div><div class="inventory-section"><h3>EQUIPMENT</h3><div id="inventory-equipment" class="inventory-grid equipment-grid"></div></div><div class="inventory-section"><h3>HOTBAR · DRAG ITEMS TO ARRANGE</h3><div id="inventory-hotbar" class="inventory-grid inventory-hotbar"></div></div></div>
    <aside class="inventory-preview"><div id="inventory-preview-icon" class="preview-icon">🔦</div><h3 id="inventory-preview-title">FLASHLIGHT</h3><p id="inventory-preview-description">A reliable source of light. Keep it ready when exploring dark areas.</p><div id="letter-reader" class="inventory-document"></div></aside>
   </div><footer class="inventory-footer"><span>ENTER  EXAMINE</span><span>ESC  BACK</span></footer>
  </div>
@@ -113,6 +113,7 @@ const espMarkers=new Map<string,HTMLDivElement>();
 const objectivePanel=document.createElement('div');objectivePanel.id='objective-panel';objectivePanel.innerHTML='<strong>CURRENT OBJECTIVE</strong><div id="objective-text">Explore the area.</div>';game.appendChild(objectivePanel);
 const interactHint=document.createElement('div');interactHint.id='interact-hint';game.appendChild(interactHint);
 const inventoryList=document.querySelector<HTMLDivElement>('#inventory-grid')!;const equipmentList=document.querySelector<HTMLDivElement>('#inventory-equipment')!;let inventoryFilter='all';
+const HOTBAR_DEFAULT=['Flashlight','Key','Note','','Spray'];let hotbarItems:string[]=[...HOTBAR_DEFAULT];let selectedHotbarIndex=0;let draggedHotbarItem='';
 const interactables:{kind:string;label:string;object:THREE.Group;active:boolean}[]=[];
 const collectedItems=new Set<string>();
 const noteContents:Record<string,string>={};
@@ -127,8 +128,22 @@ let objectiveText='Find a way out.';
 function updateObjective(t:string){objectiveText=t;const el=document.querySelector<HTMLElement>('#objective-text');if(el)el.textContent=t;}
 const itemDescription=(item:string)=>item.startsWith('Breaker switch')?'A heavy electrical switch recovered from a breaker cabinet. It has been activated and recorded as an objective.':item.toLowerCase().includes('fuse')?'A replacement fuse for the Level 1 generator. Three are needed to restore power.':item==='Access card'?'A worn access card. It may unlock a route deeper into the complex.':item.startsWith('Explorer Note')||item.startsWith('Letter')?'A handwritten document recovered from the Backrooms. Select EXAMINE to read it.':'A useful item collected during the expedition.';
 const itemIcon=(item:string)=>item==='Flashlight'?'🔦':item.startsWith('Breaker switch')||item.startsWith('BREAKER')?'⚡':item.toLowerCase().includes('fuse')?'▥':item==='Access card'?'▰':item.startsWith('Explorer Note')||item.startsWith('Letter')?'✉':'◆';
+function renderHotbar(){
+ const bar=$('#hotbar');bar.innerHTML='';
+ hotbarItems.forEach((item,i)=>{const el=document.createElement('button');el.className='slot'+(i===selectedHotbarIndex?' selected':'');el.dataset.hotbar=String(i);el.innerHTML='<small>'+(i+1)+'</small><span>'+(item||'Empty')+'</span>';el.title=item||'Empty';el.onclick=()=>{selectedHotbarIndex=i;renderHotbar();};bar.appendChild(el);});
+}
+function assignHotbar(index:number,item:string){
+ const previous=hotbarItems.indexOf(item);
+ const displaced=hotbarItems[index]||'';
+ hotbarItems[index]=item;
+ if(previous>=0&&previous!==index)hotbarItems[previous]=displaced;
+ try{localStorage.setItem('the-backrooms-hotbar',JSON.stringify(hotbarItems));}catch{}
+ renderHotbar();updateInventory();
+}
+try{const saved=JSON.parse(localStorage.getItem('the-backrooms-hotbar')||'null');if(Array.isArray(saved)&&saved.length===5)hotbarItems=saved.map(v=>typeof v==='string'?v:'');}catch{}
 function updateInventory(){
  const all=[...collectedItems];if(hasAccessCard&&!all.includes('Access card'))all.push('Access card');
+ for(const fixed of ['Flashlight','Spray'])if(!all.includes(fixed))all.push(fixed);
  const keys=all.filter(v=>!v.startsWith('Explorer Note')&&!v.startsWith('Letter'));
  const docs=all.filter(v=>v.startsWith('Explorer Note')||v.startsWith('Letter'));
  const visible=inventoryFilter==='key'?keys:inventoryFilter==='documents'?docs:all;
@@ -141,9 +156,11 @@ function updateInventory(){
   if(item){const icon=document.createElement('span');icon.className='slot-icon';icon.textContent=itemIcon(item);const label=document.createElement('small');label.textContent=item;el.append(icon,label);el.setAttribute('aria-label',item);}
   else{el.innerHTML='<span class="empty-slot-mark"></span>';el.disabled=true;}
   inventoryList.appendChild(el);
+  if(item){el.draggable=true;el.addEventListener('dragstart',ev=>{draggedHotbarItem=item;ev.dataTransfer?.setData('text/plain',item);if(ev.dataTransfer)ev.dataTransfer.effectAllowed='move';});}
  }
  equipmentList.innerHTML='';
  const equipment=['Flashlight'];for(let i=0;i<Math.max(4,equipment.length);i++){const item=equipment[i];const el=document.createElement('div');el.className='inventory-slot equipment-slot'+(item?' filled':'');if(item){el.innerHTML='<span class="slot-icon">🔦</span><small>Flashlight</small>';}else el.innerHTML='<span class="empty-slot-mark"></span>';equipmentList.appendChild(el);}
+ const hotbarGrid=$('#inventory-hotbar');hotbarGrid.innerHTML='';hotbarItems.forEach((item,i)=>{const slot=document.createElement('button');slot.className='inventory-slot hotbar-edit-slot'+(item?' filled':'');slot.innerHTML='<small>'+(i+1)+'</small><span class="slot-icon">'+(item?itemIcon(item):'＋')+'</span><small>'+(item||'DROP ITEM')+'</small>';slot.addEventListener('dragover',ev=>{ev.preventDefault();slot.classList.add('drop-target');});slot.addEventListener('dragleave',()=>slot.classList.remove('drop-target'));slot.addEventListener('drop',ev=>{ev.preventDefault();slot.classList.remove('drop-target');const value=ev.dataTransfer?.getData('text/plain')||draggedHotbarItem;if(value)assignHotbar(i,value);draggedHotbarItem='';});slot.addEventListener('click',()=>{selectedHotbarIndex=i;renderHotbar();});hotbarGrid.appendChild(slot);});
  const selected=all.includes(selectedInventoryItem)?selectedInventoryItem:(inventoryFilter==='documents'?docs[0]:keys[0])||'Flashlight';
  const title=$('#inventory-preview-title'),icon=$('#inventory-preview-icon'),desc=$('#inventory-preview-description'),reader=$('#letter-reader');
  title.textContent=selected.toUpperCase();icon.textContent=itemIcon(selected);desc.textContent=itemDescription(selected);
@@ -163,6 +180,10 @@ function freePosition(seed:number):THREE.Vector3{
  for(let x=minX;x<=maxX;x+=step)for(let z=minZ;z<=maxZ;z+=step){const p=new THREE.Vector3(x,0,z);if(!collides(p)&&Math.hypot(x-camera.position.x,z-camera.position.z)>7&&interactables.every(v=>v.object.position.distanceTo(p)>5))candidates.push(p);}
  if(!candidates.length)return new THREE.Vector3(level<=1?20:0,0,level<=1?20:0);
  return candidates[Math.floor(Math.random()*candidates.length)]!;
+}
+function tintUntexturedProp(root:THREE.Object3D,kind:string){
+ const tint=kind==='breaker'?0xb9b7a9:kind==='fuse'?0xd8b85e:kind==='generator'?0x657b59:0x9a9a8d;
+ root.traverse(obj=>{const mesh=obj as THREE.Mesh;if(!mesh.isMesh)return;const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];mesh.material=materials.map(original=>{const mat=original.clone();if('color' in mat&&!(mat as THREE.MeshStandardMaterial).map)(mat as THREE.MeshStandardMaterial).color.setHex(tint);return mat;});});
 }
 function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number,facing=0){
  const g=new THREE.Group();
@@ -224,7 +245,7 @@ function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number
     const scale=spec.height/Math.max(size.y,.001);
     model.scale.setScalar(scale);
     model.position.set(-center.x*scale,-bounds.min.y*scale,spec.z-center.z*scale);
-    imported.add(model);loaded++;
+    tintUntexturedProp(model,kind);imported.add(model);loaded++;
     if(loaded===propSpecs.length){
      // Keep the authored GLBs and their materials; hide only the temporary fallback geometry.
      for(const child of g.children)if(child!==imported)child.visible=false;
@@ -246,7 +267,7 @@ function addStaticProp(file:string,pos:THREE.Vector3,height:number){
   const scale=height/Math.max(size.y,.001);
   model.scale.setScalar(scale);
   model.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
-  root.add(model);
+  tintUntexturedProp(model,'electrical');root.add(model);
  },undefined,(err)=>console.warn('Static prop could not load: '+file,err));
  return root;
 }
@@ -502,7 +523,7 @@ $('#open-settings').onclick=()=>openSettings('menu');$('#pause-settings').onclic
 function refreshBindLabels(){document.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach(b=>{const a=b.dataset.bind as ActionName;b.textContent=bindings[a].replace('Key','').replace('ShiftLeft','SHIFT').replace('Arrow','');});}
 document.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach(b=>b.onclick=()=>{waitingForBind=b.dataset.bind as ActionName;$('#bind-status').textContent='Press a key for '+waitingForBind+' (Esc cancels).';});refreshBindLabels();
 $('#reset-settings').onclick=()=>{mouseSensitivity=1;fieldOfView=75;walkSpeed=3.5;graphicsScale=1;invertMouseY=false;bindings={...defaultBindings};applySettings();refreshBindLabels();};
-inventoryList.addEventListener('click',e=>{const button=(e.target as HTMLElement).closest<HTMLButtonElement>('[data-item]');if(!button?.dataset.item)return;selectedInventoryItem=button.dataset.item;updateInventory();});
+renderHotbar();inventoryList.addEventListener('click',e=>{const button=(e.target as HTMLElement).closest<HTMLButtonElement>('[data-item]');if(!button?.dataset.item)return;selectedInventoryItem=button.dataset.item;updateInventory();});
 document.querySelectorAll<HTMLButtonElement>('.inventory-tab').forEach(button=>button.addEventListener('click',()=>{inventoryFilter=button.dataset.filter||'all';updateInventory();}));
 equipmentList.addEventListener('click',()=>{selectedInventoryItem='Flashlight';updateInventory();});updateInventory();
 applySettings();
@@ -511,7 +532,7 @@ $('#start').onclick=()=>{try{localStorage.removeItem('the-backrooms-save');}catc
 $('#next-level').onclick=()=>{completeUI.classList.remove('visible');if(level>=3){menu.classList.add('visible');return;}setLevel(level+1);begin();};
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement!==renderer.domElement&&playing){playing=false;paused=true;pauseUI.classList.add('visible');}});
 document.addEventListener('mousemove',e=>{if(!playing||isHiding||document.pointerLockElement!==renderer.domElement)return;yaw-=e.movementX*.0022*mouseSensitivity;pitch=Math.max(-1.45,Math.min(1.45,pitch-(invertMouseY?-1:1)*e.movementY*.0022*mouseSensitivity));camera.rotation.set(pitch,yaw,0,'YXZ');});
-document.addEventListener('keydown',e=>{if(waitingForBind){e.preventDefault();if(e.code==='Escape'){waitingForBind=null;$('#bind-status').textContent='Binding cancelled.';return;}if(Object.values(bindings).includes(e.code)){($('#bind-status')).textContent='That key is already assigned.';return;}bindings[waitingForBind]=e.code;waitingForBind=null;saveSettings();refreshBindLabels();$('#bind-status').textContent='Controls saved.';return;}keys.add(e.code);if(e.code==='Escape'&&playing){pause();return;}if(playing&&!e.repeat&&e.code===bindings.crouch){crouched=!crouched;if(crouched)crawling=false;message(crouched?'Crouching.':'Standing.');}if(playing&&!e.repeat&&e.code===bindings.crawl){crawling=!crawling;if(crawling)crouched=false;message(crawling?'Crawling.':'Standing.');}if(e.code==='Backslash'&&!e.repeat){cheatMap=!cheatMap;$('#debug-map').style.display='none';espOverlay.style.display=cheatMap&&playing?'block':'none';message('Through-wall highlights '+(cheatMap?'enabled':'disabled')+'.');}if(e.code===bindings.flashlight&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' ['+bindings.flashlight.replace('Key','')+']';}if(e.code===bindings.inventory&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){stopIntercomMusic();playing=false;document.exitPointerLock();}else begin();}if(e.code===bindings.interact&&!e.repeat&&playing){handleWorldInteraction();}if(e.code===bindings.spray&&!e.repeat&&playing){sprayMark();}});
+document.addEventListener('keydown',e=>{if(waitingForBind){e.preventDefault();if(e.code==='Escape'){waitingForBind=null;$('#bind-status').textContent='Binding cancelled.';return;}if(Object.values(bindings).includes(e.code)){($('#bind-status')).textContent='That key is already assigned.';return;}bindings[waitingForBind]=e.code;waitingForBind=null;saveSettings();refreshBindLabels();$('#bind-status').textContent='Controls saved.';return;}keys.add(e.code);if(/^Digit[1-5]$/.test(e.code)&&playing){selectedHotbarIndex=Number(e.code.slice(-1))-1;renderHotbar();}if(e.code==='Escape'&&playing){pause();return;}if(playing&&!e.repeat&&e.code===bindings.crouch){crouched=!crouched;if(crouched)crawling=false;message(crouched?'Crouching.':'Standing.');}if(playing&&!e.repeat&&e.code===bindings.crawl){crawling=!crawling;if(crawling)crouched=false;message(crawling?'Crawling.':'Standing.');}if(e.code==='Backslash'&&!e.repeat){cheatMap=!cheatMap;$('#debug-map').style.display='none';espOverlay.style.display=cheatMap&&playing?'block':'none';message('Through-wall highlights '+(cheatMap?'enabled':'disabled')+'.');}if(e.code===bindings.flashlight&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' ['+bindings.flashlight.replace('Key','')+']';}if(e.code===bindings.inventory&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){stopIntercomMusic();playing=false;document.exitPointerLock();}else begin();}if(e.code===bindings.interact&&!e.repeat&&playing){handleWorldInteraction();}if(e.code===bindings.spray&&!e.repeat&&playing){sprayMark();}});
 document.addEventListener('keyup',e=>keys.delete(e.code));document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause();});
 const radius=.32;function collides(p:THREE.Vector3){const minX=Math.floor((p.x-radius)/CELL_SIZE),maxX=Math.floor((p.x+radius)/CELL_SIZE),minZ=Math.floor((p.z-radius)/CELL_SIZE),maxZ=Math.floor((p.z+radius)/CELL_SIZE);for(let gx=minX;gx<=maxX;gx++)for(let gz=minZ;gz<=maxZ;gz++){const bucket=solidGrid.get(gx+','+gz);if(!bucket)continue;for(const b of bucket)if(p.x+radius>b.minX&&p.x-radius<b.maxX&&p.z+radius>b.minZ&&p.z-radius<b.maxZ)return true;}return false;}
 function monsterCollides(p:THREE.Vector3){return collides(p);} // Monsters respect walls; soft steering below nudges them away from edges.
