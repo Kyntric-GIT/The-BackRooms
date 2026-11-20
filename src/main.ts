@@ -514,7 +514,7 @@ document.addEventListener('mousemove',e=>{if(!playing||isHiding||document.pointe
 document.addEventListener('keydown',e=>{if(waitingForBind){e.preventDefault();if(e.code==='Escape'){waitingForBind=null;$('#bind-status').textContent='Binding cancelled.';return;}if(Object.values(bindings).includes(e.code)){($('#bind-status')).textContent='That key is already assigned.';return;}bindings[waitingForBind]=e.code;waitingForBind=null;saveSettings();refreshBindLabels();$('#bind-status').textContent='Controls saved.';return;}keys.add(e.code);if(e.code==='Escape'&&playing){pause();return;}if(playing&&!e.repeat&&e.code===bindings.crouch){crouched=!crouched;if(crouched)crawling=false;message(crouched?'Crouching.':'Standing.');}if(playing&&!e.repeat&&e.code===bindings.crawl){crawling=!crawling;if(crawling)crouched=false;message(crawling?'Crawling.':'Standing.');}if(e.code==='Backslash'&&!e.repeat){cheatMap=!cheatMap;$('#debug-map').style.display='none';espOverlay.style.display=cheatMap&&playing?'block':'none';message('Through-wall highlights '+(cheatMap?'enabled':'disabled')+'.');}if(e.code===bindings.flashlight&&!e.repeat){flashOn=!flashOn;flashlight.intensity=flashOn?85:0;$('#light-status').textContent='FLASHLIGHT: '+(flashOn?'ON':'OFF')+' ['+bindings.flashlight.replace('Key','')+']';}if(e.code===bindings.inventory&&!e.repeat&&playing){inventoryOpen=!inventoryOpen;inventoryUI.classList.toggle('visible',inventoryOpen);if(inventoryOpen){stopIntercomMusic();playing=false;document.exitPointerLock();}else begin();}if(e.code===bindings.interact&&!e.repeat&&playing){handleWorldInteraction();}if(e.code===bindings.spray&&!e.repeat&&playing){sprayMark();}});
 document.addEventListener('keyup',e=>keys.delete(e.code));document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing)pause();});
 const radius=.32;function collides(p:THREE.Vector3){const minX=Math.floor((p.x-radius)/CELL_SIZE),maxX=Math.floor((p.x+radius)/CELL_SIZE),minZ=Math.floor((p.z-radius)/CELL_SIZE),maxZ=Math.floor((p.z+radius)/CELL_SIZE);for(let gx=minX;gx<=maxX;gx++)for(let gz=minZ;gz<=maxZ;gz++){const bucket=solidGrid.get(gx+','+gz);if(!bucket)continue;for(const b of bucket)if(p.x+radius>b.minX&&p.x-radius<b.maxX&&p.z+radius>b.minZ&&p.z-radius<b.maxZ)return true;}return false;}
-function monsterCollides(_p:THREE.Vector3){return false;} // Monsters ghost through map walls so they cannot become trapped.
+function monsterCollides(p:THREE.Vector3){return collides(p);} // Monsters respect walls; soft steering below nudges them away from edges.
 type MonsterState='patrol'|'investigate'|'search'|'chase'|'stalk'|'locker-check';
 type MonsterBrain={state:MonsterState;target:THREE.Vector3;lastKnown:THREE.Vector3;origin:THREE.Vector3;timer:number;think:number;};
 const wandererBrain:MonsterBrain={state:'patrol',target:new THREE.Vector3(26,0,18),lastKnown:new THREE.Vector3(),origin:new THREE.Vector3(18,0,18),timer:0,think:0};
@@ -571,7 +571,31 @@ function findLocalMonsterPath(start:THREE.Vector3,target:THREE.Vector3):THREE.Ve
  while(cursor!==startKey){const [x,z]=cursor.split(',').map(Number);path.push(world(x,z));const prev=came.get(cursor);if(!prev)return [];cursor=prev;}
  path.reverse();return path;
 }
+function pushMonsterAwayFromWalls(monster:THREE.Object3D,dt:number){
+ const p=monster.position,reach=.88,minX=Math.floor((p.x-reach)/CELL_SIZE),maxX=Math.floor((p.x+reach)/CELL_SIZE),minZ=Math.floor((p.z-reach)/CELL_SIZE),maxZ=Math.floor((p.z+reach)/CELL_SIZE);
+ let pushX=0,pushZ=0;
+ for(let gx=minX;gx<=maxX;gx++)for(let gz=minZ;gz<=maxZ;gz++){
+  const bucket=solidGrid.get(gx+','+gz);if(!bucket)continue;
+  for(const b of bucket){
+   const qx=Math.max(b.minX,Math.min(p.x,b.maxX)),qz=Math.max(b.minZ,Math.min(p.z,b.maxZ));
+   let vx=p.x-qx,vz=p.z-qz,dist=Math.hypot(vx,vz);
+   if(dist<.001){
+    const edges=[{d:Math.abs(p.x-b.minX),x:-1,z:0},{d:Math.abs(b.maxX-p.x),x:1,z:0},{d:Math.abs(p.z-b.minZ),x:0,z:-1},{d:Math.abs(b.maxZ-p.z),x:0,z:1}].sort((a,b)=>a.d-b.d);
+    vx=edges[0].x;vz=edges[0].z;dist=0;
+   }else{vx/=dist;vz/=dist;}
+   if(dist<reach){const strength=(reach-dist)/reach;pushX+=vx*strength;pushZ+=vz*strength;}
+  }
+ }
+ const mag=Math.hypot(pushX,pushZ);if(mag<.001)return;
+ const amount=Math.min(.11,(.025+mag*.045)*Math.min(2,dt*60));
+ const nx=pushX/mag,nz=pushZ/mag;
+ const both=p.clone().add(new THREE.Vector3(nx*amount,0,nz*amount));
+ if(!collides(both)){p.copy(both);return;}
+ const xOnly=p.clone();xOnly.x+=nx*amount;if(!collides(xOnly))p.x=xOnly.x;
+ const zOnly=p.clone();zOnly.z+=nz*amount;if(!collides(zOnly))p.z=zOnly.z;
+}
 function moveMonster(monster:THREE.Object3D,target:THREE.Vector3,speed:number,dt:number){
+ pushMonsterAwayFromWalls(monster,dt);
  const dx=target.x-monster.position.x,dz=target.z-monster.position.z,distance=Math.hypot(dx,dz);
  if(distance<.08)return false;
  const desired=Math.atan2(dx,dz),dirX=Math.sin(desired),dirZ=Math.cos(desired);
