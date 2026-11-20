@@ -187,10 +187,9 @@ makeRoom();
 const flashlight=new THREE.SpotLight(0xfff1cf,0,24,Math.PI/7,.45,1.3);camera.add(flashlight);camera.add(flashlight.target);flashlight.target.position.set(0,0,-1);scene.add(camera);
 function makeSmilerModel():THREE.Group{
  const g=new THREE.Group();
- const faceTexture=new THREE.TextureLoader().load(import.meta.env.BASE_URL+'models/Smiler.png');faceTexture.colorSpace=THREE.SRGBColorSpace;
- const faceSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:faceTexture,transparent:true,alphaTest:.025,depthWrite:false}));faceSprite.position.set(0,1.55,0);faceSprite.scale.set(2.55,2.28,1);g.add(faceSprite);
- return g;
- /* procedural fallback retained below for environments where image textures fail */
+ // Always build a visible procedural Smiler first. The optional face image is layered
+ // over it only after the texture has successfully loaded, so a missing PNG cannot
+ // leave Level 1 with an invisible enemy.
  const shadow=new THREE.Mesh(new THREE.SphereGeometry(.82,24,18),new THREE.MeshStandardMaterial({color:0x08070b,roughness:1,transparent:true,opacity:.96}));
  shadow.scale.set(1.05,1.35,.48);shadow.position.y=1.45;g.add(shadow);
  const face=new THREE.Mesh(new THREE.SphereGeometry(.58,24,16),new THREE.MeshBasicMaterial({color:0x050407}));face.scale.set(1.12,1,.18);face.position.set(0,1.85,-.38);g.add(face);
@@ -200,6 +199,8 @@ function makeSmilerModel():THREE.Group{
  const grin=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),24,.055,8,false),new THREE.MeshBasicMaterial({color:0xeaffdf}));g.add(grin);
  for(let i=0;i<7;i++){const tooth=new THREE.Mesh(new THREE.BoxGeometry(.075,.13,.035),new THREE.MeshBasicMaterial({color:0xf4fff0}));tooth.position.set(-.3+i*.1,1.55,-.58);g.add(tooth);}
  const haze=new THREE.PointLight(0xd9ffe1,3,5);haze.position.set(0,1.8,-.8);g.add(haze);
+ const faceTexture=new THREE.TextureLoader().load(import.meta.env.BASE_URL+'models/Smiler.png',()=>{faceTexture.colorSpace=THREE.SRGBColorSpace;faceSprite.visible=true;},undefined,()=>console.warn('Smiler face texture unavailable; using procedural model.'));
+ const faceSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:faceTexture,transparent:true,alphaTest:.025,depthWrite:false}));faceSprite.position.set(0,1.55,0);faceSprite.scale.set(2.55,2.28,1);faceSprite.visible=false;g.add(faceSprite);
  return g;
 }
 const loader=new GLTFLoader();let wanderer:THREE.Group|null=null;let smiler:THREE.Group|null=null;let mixer:THREE.AnimationMixer|null=null;let actions:Record<string,THREE.AnimationAction>={};let actionName='';

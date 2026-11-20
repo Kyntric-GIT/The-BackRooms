@@ -30,3 +30,27 @@
 .keybinds{margin:18px 0;text-align:left;border-top:1px solid #d5c58b33;padding-top:12px}.keybinds h3{font-size:11px;letter-spacing:2px;color:#d5c58b}.keybind-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px}.keybind-row button{min-width:62px;padding:6px;background:#292619;border:1px solid #b6a46c;color:#f3e8c8}.keybind-row button:hover{background:#49402a}#bind-status{font-size:10px;color:#c8b77d}.settings-panel{max-height:90vh;overflow:auto}
 #minimap-wrap{display:none;position:fixed;z-index:20;right:18px;top:18px;width:190px;padding:7px;background:#090a08c9;border:1px solid #d6c99b88;box-shadow:0 5px 24px #0008;clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}body:has(#game) #minimap-wrap{display:block}#minimap{width:176px;height:176px;display:block;background:#1b1a14;border:1px solid #c6b77a66}#minimap-title,#minimap-coords{font-size:8px;letter-spacing:2px;color:#d8cda9;padding:3px 2px}#debug-map{display:none;position:fixed;z-index:30;right:220px;top:18px;background:#090a08ee;border:1px solid #d5c58b;padding:6px;width:280px;height:280px}
 #tutorial .panel{max-width:480px;text-align:left}#tutorial-content{white-space:pre-line;line-height:1.8;color:#d7cfb6}
+
+/* Keep every gameplay-only HUD element off the title screen and pre-game tutorial. */
+#backrooms-root:has(#menu.visible) #hud,
+#backrooms-root:has(#menu.visible) #crosshair,
+#backrooms-root:has(#menu.visible) #notice,
+#backrooms-root:has(#menu.visible) #hotbar,
+#backrooms-root:has(#menu.visible) #objective-panel,
+#backrooms-root:has(#menu.visible) #interact-hint,
+#backrooms-root:has(#menu.visible) #minimap-wrap,
+#backrooms-root:has(#menu.visible) #debug-map,
+#backrooms-root:has(#menu.visible) #esp-overlay,
+#backrooms-root:has(#menu.visible) #import-map,
+#backrooms-root:has(#menu.visible) #import-message,
+#backrooms-root:has(#tutorial.visible) #hud,
+#backrooms-root:has(#tutorial.visible) #crosshair,
+#backrooms-root:has(#tutorial.visible) #notice,
+#backrooms-root:has(#tutorial.visible) #hotbar,
+#backrooms-root:has(#tutorial.visible) #objective-panel,
+#backrooms-root:has(#tutorial.visible) #interact-hint,
+#backrooms-root:has(#tutorial.visible) #minimap-wrap,
+#backrooms-root:has(#tutorial.visible) #debug-map,
+#backrooms-root:has(#tutorial.visible) #esp-overlay,
+#backrooms-root:has(#tutorial.visible) #import-map,
+#backrooms-root:has(#tutorial.visible) #import-message{display:none!important}
