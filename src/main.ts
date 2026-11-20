@@ -314,8 +314,8 @@ const MAP_PLAYER_SPAWN=new THREE.Vector3(8.33,0,7.35);
 const MAP_OBJECTIVE_SPAWNS=[[40.21,3.17],[115.42,3.17],[156.29,15.73],[205.19,22.42],[25.95,27.19],[61.17,28.89],[235.65,38.92],[172.72,47.91],[182.53,52.37],[22.9,52.66],[48.08,55.42],[185.35,68.57],[3.05,72.21],[92.82,72.21],[211.06,77.79],[128.87,78.08],[52.84,84.54],[12.86,88.71],[102.86,93.17],[98.69,107.44],[75.44,113.31],[185.63,113.6],[3.35,114.72]] as const;
 const MAP_LOCKER_SPAWNS=[[126.3,25.66],[174.83,31.66],[236.93,46.56],[97.56,49.25],[2.42,55.41],[103.43,55.63],[77.77,56.01],[53.93,66.23],[126.34,66.12],[21.76,72.21],[197.56,116.43]] as const;
 const MAP_MONSTER_SPAWNS=[[53.25,12.52],[213.28,13.8],[143.66,14.32],[95.28,36.45],[12.64,43.38],[148.07,43.38],[214.98,44.78],[150.18,90.59],[67.04,92.7],[205.72,109.13],[12.21,113.67]] as const;
-const MAP_NOCLIP_SPAWNS=[[20,10.4],[58.4,10.4],[96.8,10.4],[138.4,10.4],[180,16.8],[218.4,10.4],[16.8,36],[58.4,36],[103.2,36],[138.4,36],[176.8,36],[221.6,36],[20,55.2],[58.4,61.6],[100,61.6],[138.4,61.6],[183.2,61.6],[218.4,61.6],[20,84],[61.6,80.8],[100,84],[138.4,84],[180,80.8],[218.4,84],[20,106.4],[58.4,106.4],[100,109.6],[138.4,106.4],[180,109.6],[218.4,106.4]] as const;
-// Every orange marker is a real noclip passage, except the one too close to the player start.
+// Fresh noclip markers: every coordinate is centered directly on one interior wall segment.
+const MAP_NOCLIP_SPAWNS=[[232.5,8],[8.5,97],[107,18.5],[212,114.5],[123.5,99],[30.5,23.5],[178.5,51],[56.5,71],[229,63.5],[184.5,8],[132,58.5],[43,112.5],[69,16.5],[87.5,96.5],[151,28.5],[98,58.5],[11,63.5],[206,28.5],[200.5,72],[37.5,48.5],[61,40.5],[37,84.5],[227,96.5],[159,63.5],[49,8.5],[178.5,28],[200.5,93],[118.5,79],[86,4.5],[208.5,8]] as const;
 const NOCLIP_SPAWN_EXCLUSION=26;
 function isActiveNoclipSpawn(x:number,z:number){return level<=1&&Math.hypot(x-MAP_PLAYER_SPAWN.x,z-MAP_PLAYER_SPAWN.z)>=NOCLIP_SPAWN_EXCLUSION;}
 function addSolidCollisionBounds(b:SolidBounds){
@@ -334,7 +334,7 @@ function addSolidCollisionBounds(b:SolidBounds){
     const dx=Math.max(minX-px,0,px-maxX),dz=Math.max(minZ-pz,0,pz-maxZ),distance=Math.hypot(dx,dz);
     if(!best||distance<best.distance)best={x:minX,z:minZ,w,d,distance};
    }
-   if(best&&best.distance<=18.5){
+   if(best&&best.distance<=.05){
     const matches=Math.abs(b.minX-best.x)<.02&&Math.abs(b.minZ-best.z)<.02&&Math.abs((b.maxX-b.minX)-best.w)<.02&&Math.abs((b.maxZ-b.minZ)-best.d)<.02;
     if(matches)cuts.push({axis:best.w<=best.d?'z':'x',at:best.w<=best.d?Math.max(b.minZ,Math.min(pz,b.maxZ)):Math.max(b.minX,Math.min(px,b.maxX))});
    }
