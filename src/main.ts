@@ -224,7 +224,53 @@ function isNoclipWall(w:number,h:number,d:number,x:number,z:number){return level
 const MAP_LOCKER_FACING=[1.71,-0.09,-1.33,-1.37,2.17,2.03,-1.64,-0.63,1.39,-1.42,-3.08] as const;
 const MAP_GENERATOR_SPAWN=new THREE.Vector3(159.93,0,89.0);
 const MAP_EXIT_SPAWN=new THREE.Vector3(235.95,0,114.72);
-function placeExit(x:number,z:number){if(exitPortal)scene.remove(exitPortal);const g=new THREE.Group();const frame=new THREE.Mesh(new THREE.TorusGeometry(1.05,.12,12,36),new THREE.MeshStandardMaterial({color:0x8b9c76,emissive:0x31482c,emissiveIntensity:1.5}));frame.position.y=1.35;g.add(frame);const glow=new THREE.Mesh(new THREE.PlaneGeometry(1.75,2.35),new THREE.MeshBasicMaterial({color:0x9bd6a0,transparent:true,opacity:.38,side:THREE.DoubleSide}));glow.position.set(0,1.35,-.03);g.add(glow);const lamp=new THREE.PointLight(0x9bd6a0,16,9);lamp.position.set(0,1.5,1);g.add(lamp);g.position.set(x,0,z);scene.add(g);exitPortal=g;}
+function placeExit(x:number,z:number){
+ if(exitPortal)scene.remove(exitPortal);
+ const g=new THREE.Group();
+ const darkMetal=new THREE.MeshStandardMaterial({color:level===1||level===3?0x14241b:0x292820,roughness:.82,metalness:.18});
+ const wood=new THREE.MeshStandardMaterial({color:0x513323,roughness:.88,metalness:.04});
+ const woodLight=new THREE.MeshStandardMaterial({color:0x765039,roughness:.82,metalness:.03});
+ const trim=new THREE.MeshStandardMaterial({color:level===1||level===3?0x30382e:0x29251e,roughness:.8,metalness:.24});
+ const handleMat=new THREE.MeshStandardMaterial({color:0xaaa995,roughness:.35,metalness:.78});
+ const green=new THREE.MeshStandardMaterial({color:0x12d84b,emissive:0x08b52e,emissiveIntensity:level===1||level===3?2.1:1.15,roughness:.35});
+ const part=(w:number,h:number,d:number,xp:number,yp:number,zp:number,mat:THREE.Material)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(xp,yp,zp);g.add(m);return m;};
+ // Heavy frame and inset doorway.
+ part(1.82,2.95,.22,0,1.48,0,trim);
+ part(1.58,2.72,.12,0,1.43,.13,darkMetal);
+ const door=new THREE.Group();
+ const emergency=level===1||level===3;
+ const slab=new THREE.Mesh(new THREE.BoxGeometry(1.38,2.48,.13),emergency?darkMetal:wood);slab.position.set(0,1.38,.235);door.add(slab);
+ if(!emergency){
+  for(const [yy,hh] of [[.72,.66],[1.62,.86]] as const){
+   const panel=new THREE.Mesh(new THREE.BoxGeometry(1.08,hh,.035),woodLight);panel.position.set(0,yy,.315);door.add(panel);
+   const inset=new THREE.Mesh(new THREE.BoxGeometry(.96,hh-.12,.018),wood);inset.position.set(0,yy,.337);door.add(inset);
+  }
+  for(let i=0;i<5;i++){const grain=new THREE.Mesh(new THREE.BoxGeometry(.012,2.18,.008),woodLight);grain.position.set(-.53+i*.26,1.38,.349);door.add(grain);}
+  const handle=new THREE.Mesh(new THREE.BoxGeometry(.24,.045,.055),handleMat);handle.position.set(-.48,1.23,.39);door.add(handle);
+  const knob=new THREE.Mesh(new THREE.SphereGeometry(.065,12,8),handleMat);knob.position.set(-.48,1.23,.43);door.add(knob);
+ }else{
+  const inset=new THREE.Mesh(new THREE.BoxGeometry(1.12,1.94,.035),trim);inset.position.set(0,1.38,.315);door.add(inset);
+  const push=new THREE.Mesh(new THREE.BoxGeometry(1.03,.075,.09),handleMat);push.position.set(0,1.03,.39);door.add(push);
+  const kick=new THREE.Mesh(new THREE.BoxGeometry(1.1,.28,.025),new THREE.MeshStandardMaterial({color:0x454b40,metalness:.5,roughness:.55}));kick.position.set(0,.42,.345);door.add(kick);
+ }
+ g.add(door);
+ // Bright green EXIT sign.
+ const signCanvas=document.createElement('canvas');signCanvas.width=512;signCanvas.height=192;
+ const ctx=signCanvas.getContext('2d')!;
+ ctx.fillStyle='#063d17';ctx.fillRect(0,0,512,192);
+ ctx.strokeStyle='#42ff73';ctx.lineWidth=10;ctx.strokeRect(7,7,498,178);
+ ctx.fillStyle='#62ff83';ctx.font='bold 112px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('EXIT',256,100);
+ const signTexture=new THREE.CanvasTexture(signCanvas);signTexture.colorSpace=THREE.SRGBColorSpace;
+ const sign=new THREE.Mesh(new THREE.BoxGeometry(1.05,.36,.12),new THREE.MeshStandardMaterial({map:signTexture,emissive:0x0c6d25,emissiveMap:signTexture,emissiveIntensity:1.7,roughness:.4}));
+ sign.position.set(0,3.12,.17);g.add(sign);
+ part(.88,.035,.035,0,2.62,.34,green);
+ const signLight=new THREE.PointLight(0x35ff62,emergency?7:3.8,emergency?8:5);signLight.position.set(0,2.9,.8);g.add(signLight);
+ const floorGlow=new THREE.Mesh(new THREE.PlaneGeometry(2.8,2.2),new THREE.MeshBasicMaterial({color:0x1bdb4c,transparent:true,opacity:emergency?.09:.035,side:THREE.DoubleSide,depthWrite:false}));
+ floorGlow.rotation.x=-Math.PI/2;floorGlow.position.set(0,.012,.65);g.add(floorGlow);
+ g.position.set(x,0,z);
+ if(level<=1)g.rotation.y=Math.PI;
+ scene.add(g);exitPortal=g;
+}
 function revealExit(){if(exitPortal)return;placeExit(level<=1?MAP_EXIT_SPAWN.x:0,level<=1?MAP_EXIT_SPAWN.z:-18);message('Objective complete. The exit has appeared.');}
 function addBox(w:number,h:number,d:number,x:number,y:number,z:number,mat:THREE.Material,solid=false){
  const geometry=new THREE.BoxGeometry(w,h,d),pos=geometry.attributes.position,normal=geometry.attributes.normal,uv=geometry.attributes.uv;
