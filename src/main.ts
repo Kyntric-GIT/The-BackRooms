@@ -7,7 +7,7 @@ import './style.css';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
 <div id="backrooms-root">
-  <div id="hud"><div class="brand">THE BACKROOMS <span id="level-name">LEVEL 0 — LOBBY</span></div><div class="hud-right"><span id="light-status">FLASHLIGHT: OFF [F]</span><span id="movement-state">WALK</span><span id="stamina">STAMINA <i><b></b></i></span></div></div>
+  <div id="hud"><div class="brand">THE BACKROOMS <span id="level-name">LEVEL 0 — LOBBY</span></div><div class="hud-right"><span id="light-status">FLASHLIGHT: OFF [F]</span></div></div><div id="sprint-hud"><span id="movement-state">WALK</span><span id="stamina">STAMINA <i><b></b></i></span></div>
   <div id="danger-hud" aria-live="polite"><div class="danger-top"><span class="danger-dot"></span><strong id="danger-title">THREAT MONITOR</strong><span id="danger-state">NO THREAT</span></div><div class="danger-track"><i id="danger-fill"></i></div><div class="danger-bottom"><span id="danger-detail">No nearby movement detected</span><span id="danger-distance">—</span></div></div><div id="danger-alert" role="status">THREAT NEARBY</div>
   <div id="crosshair"></div><div id="vignette"></div>
   <div id="notice">Find a way out.</div>
