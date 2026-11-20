@@ -122,6 +122,36 @@ function addInteractable(kind:string,label:string,pos:THREE.Vector3,color:number
  }
  if(kind!=='locker'&&kind!=='breaker'){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.09,.08),new THREE.MeshBasicMaterial({color}));lamp.position.set(0,kind==='generator'?1.05:.38,.42);g.add(lamp);}
  if(kind==='note'){const page=new THREE.Mesh(new THREE.BoxGeometry(.32,.025,.23),new THREE.MeshBasicMaterial({color:0xe7dfbd}));page.position.y=.55;g.add(page);}
+ // Load the uploaded GLB props. Breaker objectives combine the electrical cabinet
+ // and breaker model into one interactable so activating the breaker remains unchanged.
+ const propSpecs: {file:string;height:number;z:number}[] =
+  kind==='breaker'
+   ? [{file:'electrical_box.glb',height:1.85,z:0},{file:'circuit_breaker.glb',height:.82,z:.48}]
+   : kind==='fuse'
+    ? [{file:'fuse.glb',height:.42,z:0}]
+    : kind==='generator'
+     ? [{file:'generator.glb',height:1.55,z:0}]
+     : [];
+ if(propSpecs.length){
+  const imported=new THREE.Group();g.add(imported);
+  let loaded=0;let failed=false;
+  for(const spec of propSpecs){
+   loader.load(import.meta.env.BASE_URL+'models/'+spec.file,(asset)=>{
+    const model=asset.scene;
+    const bounds=new THREE.Box3().setFromObject(model);
+    const size=bounds.getSize(new THREE.Vector3());
+    const center=bounds.getCenter(new THREE.Vector3());
+    const scale=spec.height/Math.max(size.y,.001);
+    model.scale.setScalar(scale);
+    model.position.set(-center.x*scale,-bounds.min.y*scale,spec.z-center.z*scale);
+    imported.add(model);loaded++;
+    if(loaded===propSpecs.length){
+     // Keep the authored GLBs and their materials; hide only the temporary fallback geometry.
+     for(const child of g.children)if(child!==imported)child.visible=false;
+    }
+   },undefined,(err)=>{failed=true;console.warn('Prop model could not load: '+spec.file,err);});
+  }
+ }
  g.position.copy(pos);if(kind==='locker')g.rotation.y=facing;world.add(g);interactables.push({kind,label,object:g,active:true});return g;
 }
 function setupLevelGameplay(n:number){
