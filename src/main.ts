@@ -536,26 +536,83 @@ function choosePatrolTarget(monster:THREE.Object3D,brain:MonsterBrain){
  }
  brain.target.copy(monster.position);
 }
-function moveMonster(monster:THREE.Object3D,target:THREE.Vector3,speed:number,dt:number){
- const dx=target.x-monster.position.x,dz=target.z-monster.position.z;
- const distance=Math.hypot(dx,dz);if(distance<.08)return false;
- const desired=Math.atan2(dx,dz);
- // Try the direct route first, then progressively wider steering angles.
- const offsets=[0,.38,-.38,.78,-.78,1.2,-1.2,1.65,-1.65,2.25,-2.25,Math.PI];
- let bestX=0,bestZ=0,bestScore=-Infinity;
- for(const offset of offsets){
-  const angle=desired+offset,dirX=Math.sin(angle),dirZ=Math.cos(angle);
-  const probe=monster.position.clone().add(new THREE.Vector3(dirX*.9,0,dirZ*.9));
-  if(collides(probe))continue;
-  const score=Math.cos(offset)*2+(Math.min(distance,4)/4)*.08;
-  if(score>bestScore){bestScore=score;bestX=dirX;bestZ=dirZ;}
+type MonsterPathCache={points:THREE.Vector3[];index:number;target:THREE.Vector3;repathAt:number;lastPosition:THREE.Vector3;stuckFor:number};
+const monsterPathCache=new WeakMap<THREE.Object3D,MonsterPathCache>();
+function findLocalMonsterPath(start:THREE.Vector3,target:THREE.Vector3):THREE.Vector3[]{
+ const step=.9,half=14,baseX=Math.floor(start.x/step),baseZ=Math.floor(start.z/step),span=Math.ceil(half/step);
+ const minX=baseX-span,maxX=baseX+span,minZ=baseZ-span,maxZ=baseZ+span;
+ const key=(x:number,z:number)=>x+','+z,world=(x:number,z:number)=>new THREE.Vector3(x*step,0,z*step);
+ let goalX=Math.round(target.x/step),goalZ=Math.round(target.z/step);
+ if(collides(world(goalX,goalZ))){
+  let best=Infinity,found=false;
+  for(let r=1;r<=5&&!found;r++)for(let x=-r;x<=r;x++)for(let z=-r;z<=r;z++){if(Math.max(Math.abs(x),Math.abs(z))!==r)continue;const px=goalX+x,pz=goalZ+z,p=world(px,pz),d=p.distanceTo(target);if(d<best&&!collides(p)){best=d;goalX=px;goalZ=pz;found=true;}}
+  if(!found)return [];
  }
- if(bestScore===-Infinity)return false;
- const step=Math.min(speed*dt,distance);
- const next=monster.position.clone().add(new THREE.Vector3(bestX*step,0,bestZ*step));
- if(!collides(next))monster.position.copy(next);
- monster.rotation.y=Math.atan2(bestX,bestZ);
- return true;
+ const sx=baseX,sz=baseZ,startKey=key(sx,sz),goalKey=key(goalX,goalZ);
+ const open=[{x:sx,z:sz,g:0,f:Math.hypot(goalX-sx,goalZ-sz)}],came=new Map<string,string>(),cost=new Map<string,number>([[startKey,0]]),closed=new Set<string>();
+ const dirs=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+ let found=false,iterations=0;
+ while(open.length&&iterations++<1200){
+  open.sort((a,b)=>a.f-b.f);const current=open.shift()!,ck=key(current.x,current.z);
+  if(closed.has(ck))continue;closed.add(ck);
+  if(ck===goalKey){found=true;break;}
+  for(const [dx,dz] of dirs){
+   const nx=current.x+dx,nz=current.z+dz;
+   if(nx<minX||nx>maxX||nz<minZ||nz>maxZ)continue;
+   const p=world(nx,nz);if(collides(p))continue;
+   if(dx!==0&&dz!==0&&(collides(world(current.x+dx,current.z))||collides(world(current.x,current.z+dz))))continue;
+   const nk=key(nx,nz),ng=current.g+(dx&&dz?1.414:1);
+   if(ng>=(cost.get(nk)??Infinity))continue;
+   cost.set(nk,ng);came.set(nk,ck);open.push({x:nx,z:nz,g:ng,f:ng+Math.hypot(goalX-nx,goalZ-nz)});
+  }
+ }
+ if(!found)return [];
+ const path:THREE.Vector3[]=[];let cursor=goalKey;
+ while(cursor!==startKey){const [x,z]=cursor.split(',').map(Number);path.push(world(x,z));const prev=came.get(cursor);if(!prev)return [];cursor=prev;}
+ path.reverse();return path;
+}
+function moveMonster(monster:THREE.Object3D,target:THREE.Vector3,speed:number,dt:number){
+ const dx=target.x-monster.position.x,dz=target.z-monster.position.z,distance=Math.hypot(dx,dz);
+ if(distance<.08)return false;
+ const desired=Math.atan2(dx,dz),dirX=Math.sin(desired),dirZ=Math.cos(desired);
+ const directProbe=monster.position.clone().add(new THREE.Vector3(dirX*.95,0,dirZ*.95));
+ const cache=monsterPathCache.get(monster)??{points:[],index:0,target:new THREE.Vector3(NaN,0,NaN),repathAt:0,lastPosition:monster.position.clone(),stuckFor:0};
+ const moved=monster.position.distanceTo(cache.lastPosition);
+ cache.stuckFor=moved<.012?cache.stuckFor+dt:0;cache.lastPosition.copy(monster.position);
+ const blocked=collides(directProbe);
+ const targetChanged=cache.target.distanceTo(target)>2.2;
+ if(blocked&&(targetChanged||cache.repathAt<=0||cache.repathAt<performance.now()/1000||cache.index>=cache.points.length||cache.stuckFor>.45)){
+  // Plan a short local route toward a waypoint in the target's direction; repeat as the monster advances.
+  const waypointDistance=Math.min(9,Math.max(2,distance));
+  const waypoint=new THREE.Vector3(monster.position.x+dirX*waypointDistance,0,monster.position.z+dirZ*waypointDistance);
+  cache.points=findLocalMonsterPath(monster.position,waypoint);cache.index=0;cache.target.copy(target);cache.repathAt=performance.now()/1000+1.05;cache.stuckFor=0;
+ }
+ let moveX=dirX,moveZ=dirZ;
+ if(blocked&&cache.index<cache.points.length){
+  while(cache.index<cache.points.length&&monster.position.distanceTo(cache.points[cache.index]!)<.65)cache.index++;
+  const waypoint=cache.points[cache.index];
+  if(waypoint){const vx=waypoint.x-monster.position.x,vz=waypoint.z-monster.position.z,len=Math.hypot(vx,vz)||1;moveX=vx/len;moveZ=vz/len;}
+ }
+ // Steering probes keep monsters sliding around small corners even before a full path is needed.
+ if(!blocked){
+  cache.points=[];cache.index=0;
+  const next=monster.position.clone().add(new THREE.Vector3(moveX*speed*dt,0,moveZ*speed*dt));
+  if(!collides(next))monster.position.copy(next);
+  else cache.repathAt=0;
+ }else{
+  const step=Math.min(speed*dt,Math.max(.08,monster.position.distanceTo(cache.points[cache.index]||target)));
+  const next=monster.position.clone().add(new THREE.Vector3(moveX*step,0,moveZ*step));
+  if(!collides(next))monster.position.copy(next);
+  else{
+   const offsets=[.45,-.45,.9,-.9,1.45,-1.45,2.1,-2.1,Math.PI];
+   let best:THREE.Vector3|null=null,bestScore=-Infinity;
+   for(const offset of offsets){const a=desired+offset,vx=Math.sin(a),vz=Math.cos(a),probe=monster.position.clone().add(new THREE.Vector3(vx*.72,0,vz*.72));if(collides(probe))continue;const score=Math.cos(offset);if(score>bestScore){bestScore=score;best=new THREE.Vector3(vx,0,vz);}}
+   if(best){const sidestep=monster.position.clone().add(best.multiplyScalar(Math.min(speed*dt,.12)));if(!collides(sidestep))monster.position.copy(sidestep);}
+   cache.repathAt=0;
+  }
+ }
+ monster.rotation.y=Math.atan2(moveX,moveZ);monsterPathCache.set(monster,cache);
+ return moved>.001||!collides(directProbe);
 }
 function updateMonster(monster:THREE.Object3D,brain:MonsterBrain,kind:'wanderer'|'smiler',dt:number){
  if(brain.state==='locker-check'){
