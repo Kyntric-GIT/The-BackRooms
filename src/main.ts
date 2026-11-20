@@ -226,18 +226,45 @@ function setLevel(n:number){clearSprayMarks();if(exitPortal){scene.remove(exitPo
 // processed to sound like a distant, narrow-band PA/intercom. No recording is embedded.
 let intercomContext:AudioContext|null=null;
 let intercomTimer:number|undefined;
+let lyricTimer:number|undefined;
+let lyricIndex=0;
 let intercomNodes:AudioNode[]=[];
+const daisyLyrics=[
+ 'Daisy, Daisy, give me your answer, do.',
+ 'I am half crazy, all for the love of you.',
+ 'It will not be a stylish marriage,',
+ 'I cannot afford a carriage.',
+ 'But you will look sweet upon the seat',
+ 'of a bicycle built for two.',
+ 'We will go tandem as man and wife,',
+ 'Daisy, Daisy, this is the life.',
+ 'You will be the bell that I will ring,',
+ 'and we will go cycling in the spring.',
+ 'Daisy, Daisy, give me your answer, do.',
+ 'I am half crazy, all for the love of you.',
+ 'It will not be a stylish marriage,',
+ 'I cannot afford a carriage.',
+ 'But you will look sweet upon the seat',
+ 'of a bicycle built for two.'
+];
 function stopIntercomMusic(){
  if(intercomTimer!==undefined){window.clearInterval(intercomTimer);intercomTimer=undefined;}
+ if(lyricTimer!==undefined){window.clearTimeout(lyricTimer);lyricTimer=undefined;}
+ if('speechSynthesis' in window)window.speechSynthesis.cancel();
  if(intercomContext){const old=intercomContext;intercomContext=null;intercomNodes=[];void old.close().catch(()=>{});}
+}
+function startIntercomLyrics(){
+ if(!('speechSynthesis' in window)||!playing)return;
+ window.speechSynthesis.cancel();lyricIndex=0;
+ const speakNext=()=>{if(!playing)return;const line=daisyLyrics[lyricIndex%daisyLyrics.length];const utterance=new SpeechSynthesisUtterance(line);utterance.lang='en-US';utterance.rate=.76;utterance.pitch=.48;utterance.volume=.72;utterance.onend=()=>{if(!playing)return;lyricIndex++;lyricTimer=window.setTimeout(speakNext,520);};utterance.onerror=()=>{if(!playing)return;lyricIndex++;lyricTimer=window.setTimeout(speakNext,650);};window.speechSynthesis.speak(utterance);};
+ lyricTimer=window.setTimeout(speakNext,900);
 }
 function startIntercomMusic(){
  if(!playing)return;
  if(intercomContext){if(intercomContext.state==='suspended')void intercomContext.resume();return;}
  try{
   const ctx=new AudioContext();intercomContext=ctx;
-  const master=ctx.createGain();master.gain.value=.0001;master.connect(ctx.destination);
-  master.gain.setTargetAtTime(.055,ctx.currentTime,.8);
+  const master=ctx.createGain();master.gain.value=.0001;master.connect(ctx.destination);master.gain.setTargetAtTime(.055,ctx.currentTime,.8);
   const filter=ctx.createBiquadFilter();filter.type='bandpass';filter.frequency.value=1050;filter.Q.value=.82;filter.connect(master);
   const grit=ctx.createWaveShaper();const curve=new Float32Array(256);for(let i=0;i<curve.length;i++){const x=i*2/(curve.length-1)-1;curve[i]=Math.tanh(x*2.6)*.82;}grit.curve=curve;grit.oversample='2x';grit.connect(filter);
   const carrier=ctx.createOscillator();carrier.type='square';carrier.frequency.value=392;const voice=ctx.createGain();voice.gain.value=.24;carrier.connect(voice);voice.connect(grit);carrier.start();
@@ -246,12 +273,9 @@ function startIntercomMusic(){
   const noiseBuffer=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate),noiseData=noiseBuffer.getChannelData(0);for(let i=0;i<noiseData.length;i++)noiseData[i]=(Math.random()*2-1)*.22;
   const noise=ctx.createBufferSource();noise.buffer=noiseBuffer;noise.loop=true;const noiseFilter=ctx.createBiquadFilter();noiseFilter.type='bandpass';noiseFilter.frequency.value=1450;noiseFilter.Q.value=.7;const noiseGain=ctx.createGain();noiseGain.gain.value=.018;noise.connect(noiseFilter);noiseFilter.connect(noiseGain);noiseGain.connect(master);noise.start();
   intercomNodes=[carrier,undertone,trem,noise,master];
-  // Melody notes from the public-domain Daisy Bell tune, in a deliberately
-  // mechanical, slightly detuned computer tone; no lyrics or sampled audio.
-  const notes=[392,330,262,294,330,262,294,330,349,392,440,440,392,330,262,294,330,262,294,330,294,262,294,330,262,0];
-  let index=0;
+  const notes=[392,330,262,294,330,262,294,330,349,392,440,440,392,330,262,294,330,262,294,330,294,262,294,330,262,0];let index=0;
   const playNote=()=>{if(!intercomContext||ctx.state==='closed')return;const hz=notes[index%notes.length];const now=ctx.currentTime;carrier.frequency.setTargetAtTime(hz||392,now,.025);undertone.frequency.setTargetAtTime((hz||392)/2,now,.035);voice.gain.setTargetAtTime(hz?(.18+(index%4===0?.045:0)):.018,now,.025);index++;};
-  playNote();intercomTimer=window.setInterval(playNote,390);
+  playNote();intercomTimer=window.setInterval(playNote,390);startIntercomLyrics();
  }catch(err){console.warn('Intercom audio unavailable',err);stopIntercomMusic();}
 }
 
