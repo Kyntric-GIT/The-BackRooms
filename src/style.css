@@ -56,3 +56,11 @@
 #backrooms-root:has(#tutorial.visible) #import-message{display:none!important}
 
 #hotbar .slot:last-child{color:#ffb47d}
+
+/* Sprint and stamina controls sit directly above the hotbar. */
+#sprint-hud{position:absolute;z-index:3;left:50%;bottom:76px;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:12px;padding:7px 11px;background:rgba(10,10,8,.78);border:1px solid rgba(231,215,157,.38);box-shadow:0 3px 14px #0008;pointer-events:none;white-space:nowrap}
+#sprint-hud #movement-state{font-size:9px;letter-spacing:1.4px;color:#d7c99b;border:1px solid #d7c99b55;padding:4px 7px;background:#0c0c0a88}
+#sprint-hud #stamina{display:flex;align-items:center;gap:8px;font-size:9px;letter-spacing:1.2px;text-shadow:0 2px 8px #000}
+#sprint-hud #stamina i{display:block;width:90px;height:5px;background:#ffffff55;border-radius:8px;overflow:hidden}
+#sprint-hud #stamina b{display:block;width:100%;height:100%;background:#e7d79d;transition:width .1s}
+@media(max-width:600px){#sprint-hud{bottom:76px;gap:8px;padding:6px 8px}#sprint-hud #stamina i{width:62px}}
