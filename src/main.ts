@@ -126,7 +126,7 @@ const hidingReturnPosition=new THREE.Vector3();let hidingReturnYaw=0,hidingRetur
 let objectiveText='Find a way out.';
 function updateObjective(t:string){objectiveText=t;const el=document.querySelector<HTMLElement>('#objective-text');if(el)el.textContent=t;}
 const itemDescription=(item:string)=>item.startsWith('Breaker switch')?'A heavy electrical switch recovered from a breaker cabinet. It has been activated and recorded as an objective.':item.toLowerCase().includes('fuse')?'A replacement fuse for the Level 1 generator. Three are needed to restore power.':item==='Access card'?'A worn access card. It may unlock a route deeper into the complex.':item.startsWith('Explorer Note')||item.startsWith('Letter')?'A handwritten document recovered from the Backrooms. Select EXAMINE to read it.':'A useful item collected during the expedition.';
-const itemIcon=(item:string)=>item.startsWith('Breaker switch')?'⚡':item.toLowerCase().includes('fuse')?'▥':item==='Access card'?'▰':item.startsWith('Explorer Note')||item.startsWith('Letter')?'✉':'◆';
+const itemIcon=(item:string)=>item==='Flashlight'?'🔦':item.startsWith('Breaker switch')||item.startsWith('BREAKER')?'⚡':item.toLowerCase().includes('fuse')?'▥':item==='Access card'?'▰':item.startsWith('Explorer Note')||item.startsWith('Letter')?'✉':'◆';
 function updateInventory(){
  const all=[...collectedItems];if(hasAccessCard&&!all.includes('Access card'))all.push('Access card');
  const keys=all.filter(v=>!v.startsWith('Explorer Note')&&!v.startsWith('Letter'));
@@ -135,7 +135,7 @@ function updateInventory(){
  inventoryList.innerHTML='';
  const keySlots=inventoryFilter==='documents'?[]:keys;
  const docSlots=inventoryFilter==='key'?[]:docs;
- const slots=inventoryFilter==='documents'?docSlots:keySlots;
+ const slots=[...keySlots,...docSlots];
  for(let i=0;i<Math.max(5,slots.length);i++){
   const item=slots[i];const el=document.createElement('button');el.className='inventory-slot'+(item===selectedInventoryItem?' selected':'')+(item?' filled':'');el.dataset.item=item||'';
   if(item){const icon=document.createElement('span');icon.className='slot-icon';icon.textContent=itemIcon(item);const label=document.createElement('small');label.textContent=item;el.append(icon,label);el.setAttribute('aria-label',item);}
@@ -505,7 +505,7 @@ document.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach(b=>b.onclick
 $('#reset-settings').onclick=()=>{mouseSensitivity=1;fieldOfView=75;walkSpeed=3.5;graphicsScale=1;invertMouseY=false;bindings={...defaultBindings};applySettings();refreshBindLabels();};
 inventoryList.addEventListener('click',e=>{const button=(e.target as HTMLElement).closest<HTMLButtonElement>('[data-item]');if(!button?.dataset.item)return;selectedInventoryItem=button.dataset.item;updateInventory();});
 document.querySelectorAll<HTMLButtonElement>('.inventory-tab').forEach(button=>button.addEventListener('click',()=>{inventoryFilter=button.dataset.filter||'all';updateInventory();}));
-equipmentList.addEventListener('click',()=>{selectedInventoryItem='Flashlight';updateInventory();});
+equipmentList.addEventListener('click',()=>{selectedInventoryItem='Flashlight';updateInventory();});updateInventory();
 applySettings();
 const savedAtMenu=readProgress();const continueButton=$('#continue') as HTMLButtonElement;continueButton.disabled=!(savedAtMenu&&Number.isInteger(savedAtMenu.level));function showTutorial(){const label=(a:ActionName)=>bindings[a].replace('Key','').replace('ShiftLeft','SHIFT').replace('ShiftRight','SHIFT');$('#tutorial-content').textContent='MOVE  '+label('forward')+' / '+label('backward')+' / '+label('left')+' / '+label('right')+'\\nSPRINT  '+label('sprint')+' (uses stamina; regenerates when resting)\\nCROUCH  '+label('crouch')+' (toggle)\\nCRAWL  '+label('crawl')+' (toggle)\\nLEAN  HOLD '+label('leanLeft')+' / '+label('leanRight')+'\\nINTERACT, PICK UP ITEMS & HIDE  '+label('interact')+'\\nFLASHLIGHT  '+label('flashlight')+'\\nINVENTORY & LETTERS  '+label('inventory')+'\\nSPRAY A TRAIL MARK  '+label('spray')+'\\nLOOK AROUND  Move your mouse\\nPAUSE  ESC\\n\\nStay alert. Find the objectives, use lockers carefully, and reach the exit.';$('#tutorial').classList.add('visible');}
 $('#start').onclick=()=>{try{localStorage.removeItem('the-backrooms-save');}catch{}setLevel(0);tutorialPending=true;showTutorial();};$('#continue').onclick=()=>{const saved=readProgress();if(saved&&Number.isInteger(saved.level)){setLevel(Math.max(0,Math.min(3,saved.level)));tutorialPending=true;showTutorial();}};$('#tutorial-start').onclick=()=>{tutorialPending=false;begin();};$('#resume').onclick=()=>resume();$('#restart').onclick=()=>{setLevel(level);pauseUI.classList.remove('visible');begin();};$('#to-menu').onclick=()=>{stopIntercomMusic();playing=false;paused=false;document.exitPointerLock();pauseUI.classList.remove('visible');menu.classList.add('visible');};$('#close-inventory').onclick=()=>{inventoryOpen=false;inventoryUI.classList.remove('visible');begin();};
